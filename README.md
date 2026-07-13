@@ -1,1 +1,1 @@
-# MS-AI-Project-2st-Team-3
+# MS-AI-Project-2nd-Team-3
