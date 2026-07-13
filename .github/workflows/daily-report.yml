@@ -1,0 +1,37 @@
+name: daily-report
+
+on:
+  workflow_dispatch: {}   # 수동 전용: Actions 탭 → daily-report → Run workflow 버튼으로 실행
+
+permissions:
+  contents: write           # 리포트 파일을 레포에 커밋하기 위해 필요
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches
+        run: git fetch --all --prune
+
+      - name: Generate daily reports
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: python3 scripts/daily_report.py
+
+      - name: Commit reports
+        run: |
+          git config user.name "daily-report-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/daily-reports/
+          if git diff --cached --quiet; then
+            echo "커밋할 리포트 없음"
+          else
+            git commit -m "report: $(TZ=Asia/Seoul date +%F) 데일리 리포트 자동 생성"
+            git pull --rebase origin ${GITHUB_REF_NAME}
+            git push
+          fi
