@@ -51,7 +51,7 @@ SYSTEM_PROMPT = """당신은 게임 채팅 유해발언 심사역입니다. 아�
 [카테고리 4: 폭력성 발언] (0=해당없음)
 1단계(경미): 구체적 위해 특정 없는 거친 감정 표출, 막연한 적대적 언사
 2단계(중간): 대상을 향한 직접적 위협·협박, 게임 내외 위해 암시
-3단계(심각): 살상·폭행·고문 등 사실적·잔인한 묘사, 범죄 수단·방법 구체적 설명
+3단계(심각): 살상·폭행·고문 등 사실적·잔인한 묘사, 범죄 수단·방법 구체적 설명2 
 4단계(최상급): 특정 인물·장소 향한 실제 위해 예고, 중대범죄 미화/사실적 묘사
 
 [최종 판단 규칙]
@@ -71,9 +71,23 @@ def classify(text: str) -> dict:
         reasoning={"effort": "low"},     # 내부 사고 단계를 줄여서, 최종 답에 토큰을 더 남겨둠
     )
     raw = response.output_text.strip()
+    if not raw:
+        raise ValueError("empty_response")  # 빈 응답을 명확한 예외로 구분해서 던짐
     if raw.startswith("```"):
         raw = raw.strip("`").replace("json", "", 1).strip()
     return json.loads(raw)
+
+def classify_with_retry(text: str, max_retries: int = 1) -> dict:
+    # 빈 응답은 콘텐츠 필터 때문일 수도 있지만, gpt-5-mini의 일시적 오류일 수도 있음
+    # → 바로 실패 처리하지 않고 한 번 더 시도해서, 재시도로 해결되는지 확인
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            return classify(text)
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            continue  # 재시도
+    raise last_error  # 재시도까지 다 실패하면 그때 진짜 실패로 처리
 
 def load_categorized(path: str):
     # text|label|category|level 4개 컬럼을 읽어오는 함수
@@ -88,7 +102,7 @@ def load_categorized(path: str):
     return samples
 
 if __name__ == "__main__":
-    samples = load_categorized("game_chat_categorized.txt")
+    samples = load_categorized("game_chat_categorized_DRAFT.txt")
 
     binary_correct = 0     # 욕설/정상 이진 정답 개수
     category_correct = 0   # 카테고리(욕설강도/음란성발언/패드립/폭력성) 일치 개수
@@ -100,10 +114,14 @@ if __name__ == "__main__":
 
     for text, gold_label, gold_category, gold_level in samples:
         try:
-            result = classify(text)
+            result = classify_with_retry(text)
         except json.JSONDecodeError:
             failed += 1
-            print(f"[!] 응답 실패(빈 응답 추정): {text[:20]}...")
+            print(f"[!] 응답 실패(재시도 후에도 빈 응답/파싱 실패): {text[:20]}...")
+            continue
+        except ValueError:
+            failed += 1
+            print(f"[!] 응답 실패(재시도 후에도 빈 응답): {text[:20]}...")
             continue
         except BadRequestError as e:
             # Azure 콘텐츠 필터가 요청 자체를 차단한 경우 - 실제 운영에서도 벌어질 수 있는 상황이라 별도 기록
