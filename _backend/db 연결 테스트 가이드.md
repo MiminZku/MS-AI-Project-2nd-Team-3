@@ -23,16 +23,6 @@ pip install psycopg2-binary python-dotenv
   DATABASE_URL=postgresql://<유저명>:<비밀번호>@<호스트IP>:<포트>/<DB이름>
   ```
 
-* **호스트 PC (DB 서버 제공자)의 `.env` 예시:**
-  ```env
-  DATABASE_URL=postgresql://postgres:password@localhost:5432/apple_game
-  ```
-
-* **팀원 PC (클라이언트 접속자)의 `.env` 예시:**
-  ```env
-  DATABASE_URL=postgresql://postgres:password@172.16.30.143:5432/apple_game
-  ```
-
 ---
 
 ## 3. 테스트 실행
