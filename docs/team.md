@@ -8,6 +8,6 @@
 | 강민기 | MiminZku | 데이터 수집/전처리 | |
 | 박성은 | Sung Eun Park | 청킹/임베딩 | |
 | 이준석 | Leejs-js | 벡터 DB/검색 | |
-| 전재희 | jaehee-jeon | 생성(LLM 연동)/프롬프트 | |
+| 전재희 | jaehee.jeon | 생성(LLM 연동)/프롬프트 | |
 | 최진웅 | bareph | 평가/테스트 | |
 | 황선주 | seonju | 데모 UI/발표 | |
