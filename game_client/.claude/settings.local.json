@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m http.server 8123)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8123/index.html)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(npm install *)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 11496)",
+      "Bash(taskkill //F //PID 13892)",
+      "Bash(rm -f \"C:\\\\Users\\\\user\\\\Desktop\\\\project_3\\\\recordings\\\\\"*.webm *)",
+      "Bash(rm -f \"C:\\\\Users\\\\user\\\\Desktop\\\\project_3\\\\recordings\"/*.webm; ls \"C:\\\\Users\\\\user\\\\Desktop\\\\project_3\\\\recordings\")",
+      "Bash(tail -50 /tmp/server4.log 2>&1)",
+      "Bash(curl -s -o /dev/null -w \"static:8080 -> %{http_code}\\\\n\" http://localhost:8080/index.html)",
+      "Bash(curl -s -o /dev/null -w \"node:3000 -> %{http_code}\\\\n\" http://localhost:3000/report-audio?user=x)",
+      "PowerShell(Get-NetFirewallRule -Direction Inbound -Enabled True | Where-Object { $_.DisplayName -match \"Node|Python|8080|3000\" } | Select-Object DisplayName, Action | Format-Table -AutoSize)"
+    ]
+  }
+}

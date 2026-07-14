@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARENA.IO — 신고 관리 대시보드</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-page">
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">ARENA<span>.IO CS</span></div>
+  <div class="header-center">
+    <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">채팅 · 음성 신고 관리 대시보드</span>
+  </div>
+  <div class="admin-chip">
+    <div class="avatar">CS</div>
+    <span class="pname" id="adminName">CS_민지</span>
+    <span class="admin-role">모더레이터</span>
+  </div>
+</header>
+
+<div class="adm-main">
+
+  <!-- ── Stats ── -->
+  <div class="adm-stats">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">오늘 접수</div>
+      <div class="adm-stat-value" id="statTotalToday">0</div>
+    </div>
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">대기 중</div>
+      <div class="adm-stat-value danger" id="statPending">0</div>
+      <div class="adm-stat-sub" id="statPendingSub">—</div>
+    </div>
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">오늘 처리 완료</div>
+      <div class="adm-stat-value success" id="statHandledToday">0</div>
+    </div>
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">평균 처리 시간</div>
+      <div class="adm-stat-value" id="statAvgTime">—</div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ── -->
+  <div class="adm-tabs">
+    <button class="adm-tab active" data-tab="queue" onclick="switchTab('queue')">대기 중 <span class="adm-badge" id="queueCount">0</span></button>
+    <button class="adm-tab" data-tab="history" onclick="switchTab('history')">완료된 내역</button>
+  </div>
+
+  <!-- ── Queue Panel ── -->
+  <div id="queuePanel">
+    <div class="adm-filters">
+      <select class="adm-select" id="qFilterReason">
+        <option value="all">전체 사유</option>
+        <option value="abuse">욕설/비하</option>
+        <option value="harass">괴롭힘</option>
+        <option value="cheat">핵/치팅</option>
+        <option value="spam">스팸/광고</option>
+        <option value="other">기타</option>
+      </select>
+      <select class="adm-select" id="qFilterType">
+        <option value="all">전체 유형</option>
+        <option value="chat">💬 채팅</option>
+        <option value="voice">🎙 음성</option>
+      </select>
+      <select class="adm-select" id="qSort">
+        <option value="latest">최신순</option>
+        <option value="oldest">오래된순 (SLA 우선)</option>
+        <option value="dupCount">중복 신고 많은순</option>
+      </select>
+      <input class="adm-input" id="qSearch" type="text" placeholder="대상 유저명 검색...">
+    </div>
+    <div class="adm-queue-list" id="queueList"></div>
+  </div>
+
+  <!-- ── History Panel ── -->
+  <div id="historyPanel" style="display:none">
+    <div class="adm-filters">
+      <select class="adm-select" id="hFilterPeriod">
+        <option value="all">전체 기간</option>
+        <option value="today">오늘</option>
+        <option value="7d">최근 7일</option>
+        <option value="30d">최근 30일</option>
+      </select>
+      <select class="adm-select" id="hFilterResult">
+        <option value="all">전체 결과</option>
+        <option value="sanctioned">제재 처리</option>
+        <option value="dismissed">신고 취소</option>
+      </select>
+      <input class="adm-input" id="hSearch" type="text" placeholder="유저명 또는 담당자 검색...">
+    </div>
+    <div class="adm-table-wrap">
+      <table class="adm-table">
+        <thead>
+          <tr>
+            <th>처리 일시</th><th>대상 유저</th><th>사유</th><th>유형</th><th>처리 결과</th><th>담당자</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── 제재 처리 모달 ── -->
+<div class="overlay" id="sanctionOverlay" onclick="if(event.target===this) closeSanctionModal()">
+  <div class="modal wide">
+    <div class="modal-head"><div class="modal-icon">⚑</div><div class="modal-title">제재 처리 — <span id="sanctionTargetName"></span></div></div>
+    <p class="modal-sub">제재 수위와 사유를 입력하면 대상 유저에게 즉시 적용됩니다.</p>
+    <div class="adm-field">
+      <label>제재 수위</label>
+      <select id="sanctionType">
+        <option value="warn">경고</option>
+        <option value="mute_1d">채팅 정지 1일</option>
+        <option value="mute_7d">채팅 정지 7일</option>
+        <option value="ban_perm">계정 영구정지</option>
+      </select>
+    </div>
+    <div class="adm-field">
+      <label>처리 사유 (내부 기록용)</label>
+      <textarea id="sanctionReasonText" placeholder="예: 반복적인 욕설 및 비하 발언, 신고 누적 3회"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeSanctionModal()">취소</button>
+      <button class="btn btn-submit" onclick="confirmSanction()">제재 확정</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 신고 취소 모달 ── -->
+<div class="overlay" id="dismissOverlay" onclick="if(event.target===this) closeDismissModal()">
+  <div class="modal wide">
+    <div class="modal-head"><div class="modal-icon">✕</div><div class="modal-title">신고 취소 — <span id="dismissTargetName"></span></div></div>
+    <p class="modal-sub">허위 신고이거나 제재 사유가 불충분한 경우 취소 사유를 남겨주세요.</p>
+    <div class="adm-field">
+      <label>취소 사유 (필수)</label>
+      <textarea id="dismissReasonText" placeholder="예: 단순 오해로 확인됨, 제재 근거 불충분"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeDismissModal()">닫기</button>
+      <button class="btn btn-submit" onclick="confirmDismiss()">취소 확정</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 상세 보기 모달 (완료 내역) ── -->
+<div class="overlay" id="detailOverlay" onclick="if(event.target===this) closeDetailModal()">
+  <div class="modal wide">
+    <div class="modal-head"><div class="modal-icon">📄</div><div class="modal-title">처리 상세 내역</div></div>
+    <div id="detailBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeDetailModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="toast-check">✓</span><span id="toastMsg"></span></div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

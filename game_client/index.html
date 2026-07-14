@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사과 게임 — 멀티플레이어</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">ARENA<span>.IO</span></div>
+  <div class="header-center">
+    <button id="aiBtn" class="ai-btn on" onclick="toggleAI()">🤖 AI 모드</button>
+    <button class="restart-btn" onclick="beginGame()">↺ 재시작</button>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">합이 10 = 사과 제거 | 4개↑ 동시 제거 = 상대 돌 사과!</span>
+  </div>
+  <div class="player-chip">
+    <div class="avatar" id="playerAvatar">?</div>
+    <span class="pname" id="playerName">닉네임 미설정</span>
+    <span class="plevel">Lv.42</span>
+    <button class="mailbox-btn" id="mailboxBtn" onclick="event.stopPropagation(); toggleMailbox()" title="신고 내역">
+      📬
+      <span class="mailbox-badge" id="mailboxBadge" style="display:none">0</span>
+    </button>
+    <div class="mailbox-panel" id="mailboxPanel">
+      <div class="mailbox-header">신고 내역</div>
+      <div class="mailbox-list" id="mailboxList">
+        <div class="mailbox-empty">아직 신고한 내역이 없습니다</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="game-wrap">
+
+    <!-- ── Dual HUD ── -->
+    <div class="game-hud">
+      <div class="phud">
+        <div class="phud-label"><span class="banner-badge p1-color"></span>플레이어 1</div>
+        <div class="phud-score"><span id="p1Score">0</span><span style="font-size:13px;color:var(--text-muted);margin-left:2px">점</span></div>
+        <div class="phud-removed">제거: <span id="p1Removed">0</span>개 · 돌 공격: <span id="p1Attacks">0</span>회</div>
+      </div>
+      <div class="center-hud">
+        <div>
+          <div class="hud-micro">시간</div>
+          <div class="timer-val" id="timerEl">2:00</div>
+        </div>
+        <div style="text-align:center">
+          <div class="hud-micro">P1 선택합</div>
+          <div class="sum-val" id="sumEl" style="color:var(--text-muted)">—</div>
+        </div>
+      </div>
+      <div class="phud right">
+        <div class="phud-label" style="justify-content:flex-end"><span id="p2Label">🤖 AI</span><span class="banner-badge p2-color" style="margin-left:4px"></span></div>
+        <div class="phud-score"><span id="p2Score">0</span><span style="font-size:13px;color:var(--text-muted);margin-left:2px">점</span></div>
+        <div class="phud-removed">제거: <span id="p2Removed">0</span>개 · 돌 공격: <span id="p2Attacks">0</span>회</div>
+      </div>
+    </div>
+
+    <!-- ── Players Row ── -->
+    <div class="players-row">
+
+      <!-- P1 -->
+      <div class="player-section">
+        <div class="player-banner">
+          <div class="banner-name"><span class="banner-badge p1-color"></span>플레이어 1 — 마우스로 드래그</div>
+          <div class="banner-hint">4개↑ 동시 제거 → 돌 투척 🪨</div>
+        </div>
+        <div class="apple-area" id="p1Area">
+          <canvas id="p1Canvas"></canvas>
+          <div class="apple-grid" id="p1Grid"></div>
+        </div>
+      </div>
+
+      <!-- VS -->
+      <div class="vs-bar"><div class="vs-text">VS</div></div>
+
+      <!-- P2 -->
+      <div class="player-section p2-section">
+        <div class="player-banner">
+          <div class="banner-name"><span class="banner-badge p2-color"></span><span id="p2BannerName">🤖 AI</span></div>
+          <div class="banner-hint" id="p2BannerHint">자동 플레이 중</div>
+        </div>
+        <div class="apple-area" id="p2Area">
+          <canvas id="p2Canvas"></canvas>
+          <div class="apple-grid" id="p2Grid"></div>
+          <div class="p2-waiting" id="p2Waiting">
+            <div class="p2-waiting-icon">⏳</div>
+            <div class="p2-waiting-text">상대 플레이어를 기다리는 중...</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- players-row -->
+  </div><!-- game-wrap -->
+
+  <!-- ── Side Panel (멀티 모드에서만 표시) ── -->
+  <div class="side-panel" id="sidePanel" style="display:none">
+    <div class="roster">
+      <div class="panel-title">참가자 <span class="roster-count">(1/2)</span></div>
+      <div class="roster-list">
+        <div class="roster-item me">
+          <span class="roster-status"></span>
+          <div class="roster-avatar roster-me-avatar">?</div>
+          <div class="roster-name roster-me-name">나</div>
+          <span class="roster-tag">나</span>
+        </div>
+        <div class="roster-item empty roster-opponent-item">
+          <span class="roster-status"></span>
+          <div class="roster-avatar roster-opp-avatar">?</div>
+          <div class="roster-name roster-opp-name">대기 중...</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-header">
+      <span class="panel-title">채팅</span>
+      <span id="chatStatus" style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">연결 중...</span>
+    </div>
+    <div class="chat-history" id="chatHistory"></div>
+    <div class="chat-input-area">
+      <div class="chat-row">
+        <input class="chat-input" type="text" id="chatInput" placeholder="메시지 입력..."/>
+        <button class="btn btn-send" onclick="sendMsg()">전송</button>
+      </div>
+      <button class="btn btn-report" onclick="openReport('chat')">⚑ &nbsp;채팅 신고</button>
+    </div>
+    <div class="voice-section">
+      <div class="panel-title" style="margin-bottom:2px">음성 채팅</div>
+      <div class="voice-toggle-row">
+        <button class="voice-toggle-btn" id="micMuteBtn" onclick="toggleMicMute()" title="마이크 켜짐 (클릭하여 끄기)">🎤 &nbsp;마이크</button>
+        <button class="voice-toggle-btn" id="outputMuteBtn" onclick="toggleOutputMute()" title="음성 출력 켜짐 (클릭하여 끄기)">🔊 &nbsp;소리</button>
+      </div>
+      <div class="voice-row">
+        <button class="btn-mic" id="micBtn" onclick="toggleRec()">🎙</button>
+        <div class="viz" id="viz">
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+          <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+        </div>
+      </div>
+      <div class="rec-status">
+        <div class="rec-indicator" id="recInd"><div class="rec-dot"></div><span>녹음 중</span></div>
+        <span id="recTimer" style="font-family:var(--mono);font-size:11px"></span>
+        <span id="voiceHint" style="font-family:var(--mono);font-size:11px">버튼으로 녹음</span>
+      </div>
+      <button class="btn btn-report" onclick="openReport('voice')">⚑ &nbsp;음성 신고</button>
+    </div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="go-overlay" id="goOverlay">
+  <div class="go-box">
+    <button class="mailbox-btn go-mailbox-btn" onclick="event.stopPropagation(); toggleMailbox()" title="신고 내역">
+      📬
+      <span class="mailbox-badge" style="display:none">0</span>
+    </button>
+    <div class="go-title" id="goTitle">⏰ 게임 종료!</div>
+    <div class="go-scores">
+      <div class="go-player">
+        <div>🎮 플레이어 1</div>
+        <div class="go-sv" id="goP1Score">0</div>
+      </div>
+      <div class="go-divider">VS</div>
+      <div class="go-player">
+        <div id="goP2Name">🤖 AI</div>
+        <div class="go-sv" id="goP2Score">0</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="go-btn" onclick="beginGame()">↺ 다시 시작</button>
+      <button class="go-btn" style="background:var(--panel);border:1px solid var(--border);color:var(--text-muted)" onclick="showModeSelect()">모드 변경</button>
+    </div>
+    <div style="margin-top:10px">
+      <button class="go-btn" style="width:100%;background:transparent;border:1px solid var(--danger);color:var(--danger);padding:9px 20px;font-size:13px" onclick="openReport('voice')">⚑ &nbsp;이번 게임 음성 신고</button>
+    </div>
+  </div>
+</div>
+
+<!-- 게임 시작 카운트다운 -->
+<div class="countdown-overlay" id="countdownOverlay">
+  <div class="countdown-box">
+    <div class="countdown-num" id="countdownNum">3</div>
+    <div class="countdown-label">게임이 곧 시작됩니다</div>
+  </div>
+</div>
+
+<!-- 모드 선택 후 대기(준비) 화면 — 여기서 '게임 시작'을 눌러야 카운트다운이 시작됨 -->
+<div class="ready-overlay" id="readyOverlay">
+  <div class="ready-box">
+    <div class="ready-icon" id="readyIcon">🤖</div>
+    <div class="ready-title" id="readyTitle">AI 모드</div>
+    <div class="ready-desc" id="readyDesc">준비되셨으면 게임 시작을 눌러주세요</div>
+
+    <div class="ready-roster" id="readyRosterBlock">
+      <div class="ready-roster-title">참가자 <span class="roster-count">(1/2)</span></div>
+      <div class="roster-list">
+        <div class="roster-item me">
+          <span class="roster-status"></span>
+          <div class="roster-avatar roster-me-avatar">?</div>
+          <div class="roster-name roster-me-name">나</div>
+          <span class="roster-tag">나</span>
+        </div>
+        <div class="roster-item empty roster-opponent-item">
+          <span class="roster-status"></span>
+          <div class="roster-avatar roster-opp-avatar">?</div>
+          <div class="roster-name roster-opp-name">대기 중...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="consent-block">
+      <div class="consent-notice">⚠️ &nbsp;아래 항목 중 하나라도 체크하면 게임 중 음성이 녹음됩니다. 녹음된 음성은 신고 접수 시 증거 자료로 조회될 수 있습니다.</div>
+      <div class="consent-checks">
+        <label class="consent-check"><input type="checkbox" id="consentVoice"> 🔊 음성 사용</label>
+        <label class="consent-check"><input type="checkbox" id="consentMic"> 🎤 마이크 사용</label>
+      </div>
+    </div>
+
+    <button class="go-btn" onclick="confirmGameStart()">▶ 게임 시작</button>
+    <button class="ready-back" onclick="showModeSelect()">← 모드 다시 선택</button>
+  </div>
+</div>
+
+<!-- ── 로그인 화면 (진입 시 가장 먼저 표시) ── -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">ARENA<span>.IO</span></div>
+    <div class="login-sub">로그인 후 이용해 주세요</div>
+    <div class="login-field">
+      <input type="text" id="loginId" placeholder="아이디" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="loginError" style="display:none">아이디와 비밀번호를 모두 입력해 주세요</div>
+    <button class="go-btn" onclick="submitLogin()">로그인</button>
+  </div>
+</div>
+
+<!-- ── 닉네임 설정 화면 (로그인 다음) ── -->
+<div class="nickname-overlay" id="nicknameOverlay">
+  <div class="login-box">
+    <div class="login-logo">ARENA<span>.IO</span></div>
+    <div class="login-sub">게임에서 사용할 닉네임을 입력해 주세요</div>
+    <div class="login-field">
+      <input type="text" id="nicknameInput" placeholder="닉네임" maxlength="12">
+    </div>
+    <div class="login-error" id="nicknameError" style="display:none">닉네임을 입력해 주세요</div>
+    <button class="go-btn" onclick="submitNickname()">시작하기</button>
+  </div>
+</div>
+
+<!-- ── Mode Selection ── -->
+<div class="mode-overlay" id="modeOverlay">
+  <div class="mode-box">
+    <div class="mode-logo">ARENA<span>.IO</span></div>
+    <div class="mode-tagline">합이 10이 되도록 드래그하여 사과를 제거하세요</div>
+    <div class="mode-cards">
+      <div class="mode-card" onclick="selectMode('ai')">
+        <div class="mc-icon">🤖</div>
+        <div class="mc-title">AI 모드</div>
+        <div class="mc-desc">AI와 1인 대결<br>채팅 없음</div>
+      </div>
+      <div class="mode-card" onclick="selectMode('multi')">
+        <div class="mc-icon">👥</div>
+        <div class="mc-title">멀티플레이</div>
+        <div class="mc-desc">로컬 2인 대결<br>채팅 서버 연동</div>
+        <div style="margin-top:16px" onclick="event.stopPropagation()">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:6px;text-align:left">서버 주소</div>
+          <input id="serverAddr" type="text" value="localhost:3000"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;text-align:center"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'"
+            placeholder="192.168.0.5:3000"
+          />
+        </div>
+        <button onclick="event.stopPropagation(); selectMode('multi')"
+          style="margin-top:12px;width:100%;background:var(--accent);border:none;border-radius:8px;padding:9px;color:#fff;font-family:var(--font);font-weight:700;font-size:13px;cursor:pointer">
+          접속하기
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="overlay" id="overlay" onclick="bgClose(event)">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-icon">⚑</div><div class="modal-title" id="modalTitle">신고하기</div></div>
+    <div class="report-target" id="modalTargetPreview" style="display:none"></div>
+    <p class="modal-sub" id="modalSub">신고 유형을 선택해 주세요.</p>
+    <div class="report-options">
+      <label class="r-option"><input type="radio" name="reason" value="abuse"> 욕설 / 비하 발언</label>
+      <label class="r-option"><input type="radio" name="reason" value="harass"> 괴롭힘 / 지속적 공격</label>
+      <label class="r-option"><input type="radio" name="reason" value="cheat"> 핵 / 치팅 의심</label>
+      <label class="r-option"><input type="radio" name="reason" value="spam"> 스팸 / 광고</label>
+      <label class="r-option"><input type="radio" name="reason" value="other"> 기타</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeReport()">취소</button>
+      <button class="btn btn-submit" onclick="submitReport()">신고 제출</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="toast-check">✓</span><span id="toastMsg"></span></div>
+
+<!-- 로드 순서 주의: state.js가 DOM 참조/전역 상태를 만들므로 반드시 가장 먼저 로드됩니다. -->
+<script src="js/state.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/report.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
