@@ -67,6 +67,8 @@ def classify(text: str) -> dict:
         model=DEPLOYMENT_NAME,
         instructions=SYSTEM_PROMPT,
         input=text,
+        max_output_tokens=2000,          # 내부 사고+최종답 합쳐서 쓸 수 있는 토큰 여유를 늘림 (빈 응답 방지)
+        reasoning={"effort": "low"},     # 내부 사고 단계를 줄여서, 최종 답에 토큰을 더 남겨둠
     )
     raw = response.output_text.strip()
     if raw.startswith("```"):
@@ -113,8 +115,16 @@ if __name__ == "__main__":
         predicted_binary = 0 if final_level == 0 else 1
         cats = result.get("category_levels", {})
 
-        # 모델이 매긴 카테고리 중 가장 높은 점수를 받은 카테고리를 "모델의 판단 카테고리"로 봄
-        predicted_category = max(cats, key=cats.get) if cats else "없음"
+        # 여러 카테고리가 동점(최고점)일 때, 팀에서 정한 우선순위로 대표 카테고리를 결정
+        # 우선순위: 폭력성 > 패드립 > 음란성발언 > 욕설강도 (이 순서로 심각하다고 판단)
+        PRIORITY_ORDER = ["폭력성발언", "패드립", "음란성발언", "욕설강도"]
+        if cats:
+            max_level = max(cats.values())  # 카테고리들 중 최고 점수 확인
+            # 최고 점수를 받은 카테고리들만 추려서, 그중 우선순위가 가장 높은 것을 대표로 선택
+            tied_categories = [c for c in PRIORITY_ORDER if cats.get(c, 0) == max_level]
+            predicted_category = tied_categories[0] if tied_categories else "없음"
+        else:
+            predicted_category = "없음"
 
         if str(predicted_binary) == str(gold_label):
             binary_correct += 1
