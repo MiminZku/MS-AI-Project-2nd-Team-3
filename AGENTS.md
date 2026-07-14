@@ -9,7 +9,7 @@
 1. `docs/PROJECT.md` — 프로젝트 방향과 확정된 기술 결정 (헌법)
 2. `docs/decisions.md` — 최근 결정 로그 (특히 마지막 5개)
 3. `docs/plan.md` — 오늘이 Day 몇인지, 오늘의 목표
-
+a;skdljf;lskadjf
 PROJECT.md의 "만들지 않는 것"에 해당하는 기능은 제안하거나 구현하지 않는다.
 PROJECT.md의 확정 결정과 다른 기술을 쓰자는 요청을 받으면, 진행하기 전에 "결정사항과 다른데 팀 합의된 변경인지" 사용자에게 확인한다.
 
