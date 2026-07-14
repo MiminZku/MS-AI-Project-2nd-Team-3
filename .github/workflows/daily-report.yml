@@ -1,6 +1,8 @@
 name: daily-report
 
-on:
+on:  
+  schedule:
+    - cron: '0 9 16,20,21,22,23,24 7 *'   # 프로젝트 다음날 + 발표일(24) 오후 6시(KST) = UTC 09:00
   workflow_dispatch: {}   # 수동 전용: Actions 탭 → daily-report → Run workflow 버튼으로 실행
 
 permissions:
