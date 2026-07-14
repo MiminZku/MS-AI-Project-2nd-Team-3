@@ -1,0 +1,13 @@
+{
+  "name": "apple-game-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "사과 게임 멀티플레이어 채팅/입장 알림 WebSocket 서버",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
