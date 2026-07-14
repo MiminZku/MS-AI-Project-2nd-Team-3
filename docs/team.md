@@ -5,7 +5,7 @@
 
 | 이름 | github_id | 담당 파트 | 비고 |
 |---|---|---|---|
-| 강민기 | MiminZku | 데이터 수집/전처리 | |
+| 강민기 | Mingi Kang | 데이터 수집/전처리 | |
 | 박성은 | Sung Eun Park | 청킹/임베딩 | |
 | 이준석 | Leejs-js | 벡터 DB/검색 | |
 | 전재희 | jaehee.jeon | 생성(LLM 연동)/프롬프트 | |
