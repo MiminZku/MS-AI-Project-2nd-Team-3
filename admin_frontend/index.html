@@ -1,0 +1,1763 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게임 CS 제재 관리 대시보드</title>
+    <style>
+:root {
+  color-scheme: dark;
+  --bg: #070b16;
+  --panel: #101626;
+  --panel-strong: #151d30;
+  --panel-soft: #0d1322;
+  --line: #273149;
+  --text: #f1f5ff;
+  --muted: #97a5bd;
+  --blue: #4e8cff;
+  --green: #30d69b;
+  --yellow: #f4bc46;
+  --red: #ff5268;
+  --cyan: #43d7ff;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(78, 140, 255, 0.2), transparent 26%),
+    radial-gradient(circle at 90% 18%, rgba(48, 214, 155, 0.12), transparent 24%),
+    var(--bg);
+  color: var(--text);
+  font-family: Arial, "Noto Sans KR", sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 460px) minmax(300px, 1fr);
+  align-items: center;
+  gap: 48px;
+  padding: 52px;
+}
+
+.login-panel {
+  padding: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(16, 22, 38, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-brand {
+  margin-bottom: 34px;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--blue), var(--green));
+  color: #06101f;
+  font-weight: 900;
+}
+
+.brand strong,
+.operator strong {
+  display: block;
+}
+
+.brand span,
+.operator span,
+.policy-card span,
+.filters span,
+.eyebrow,
+.login-form span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 8px;
+  font-size: 30px;
+}
+
+h2 {
+  font-size: 20px;
+}
+
+h3 {
+  font-size: 16px;
+}
+
+.login-copy,
+.panel-description {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.login-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.login-form label,
+.filters label {
+  display: grid;
+  gap: 6px;
+}
+
+input,
+select {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #080d19;
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.login-error {
+  min-height: 18px;
+  margin: 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.login-button,
+button.primary {
+  min-height: 44px;
+  border-radius: 8px;
+  background: var(--blue);
+  color: #06101f;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.login-hint {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(78, 140, 255, 0.3);
+  border-radius: 8px;
+  color: #c7d4ea;
+  background: rgba(78, 140, 255, 0.08);
+  font-size: 13px;
+}
+
+.login-preview {
+  min-height: 520px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(13, 19, 34, 0.82);
+  box-shadow: var(--shadow);
+  display: grid;
+  align-content: start;
+  gap: 20px;
+}
+
+.preview-topline,
+.preview-card,
+.preview-grid div {
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(78, 140, 255, 0.35), rgba(67, 215, 255, 0.08));
+  border: 1px solid rgba(78, 140, 255, 0.25);
+}
+
+.preview-topline {
+  height: 56px;
+}
+
+.preview-card.wide {
+  height: 230px;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.preview-grid div {
+  height: 140px;
+}
+
+.dashboard-screen {
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 248px;
+  padding: 22px;
+  background: rgba(9, 14, 26, 0.96);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+nav button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  background: transparent;
+  padding: 0 12px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+nav button span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: #d9e6ff;
+}
+
+nav button.active,
+nav button:hover {
+  background: var(--blue);
+  color: #06101f;
+  font-weight: 800;
+}
+
+nav button.active span,
+nav button:hover span {
+  color: #06101f;
+}
+
+.policy-card {
+  margin-top: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.policy-card strong {
+  display: block;
+  margin: 8px 0;
+}
+
+.policy-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.app-shell {
+  margin-left: 248px;
+  padding: 28px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.operator,
+.logout-button {
+  min-width: 128px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(16, 22, 38, 0.84);
+}
+
+.operator {
+  text-align: right;
+}
+
+.logout-button {
+  color: var(--red);
+  cursor: pointer;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.metrics article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.metrics strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 27px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.queue-panel,
+.detail-panel,
+.single-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(16, 22, 38, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.queue-panel {
+  overflow: hidden;
+}
+
+.single-panel {
+  overflow: hidden;
+}
+
+.panel-heading {
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.panel-heading h2 {
+  margin-bottom: 4px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.search input {
+  width: 190px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+td span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover,
+tbody tr.selected {
+  background: rgba(78, 140, 255, 0.12);
+}
+
+.badge,
+.risk,
+.log-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.badge.pending {
+  color: #261800;
+  background: var(--yellow);
+}
+
+.badge.done {
+  color: #041e15;
+  background: var(--green);
+}
+
+.risk.critical {
+  color: #fff;
+  background: #bd3147;
+}
+
+.risk.high {
+  color: #28050a;
+  background: var(--red);
+}
+
+.risk.medium {
+  color: #231600;
+  background: var(--yellow);
+}
+
+.risk.low {
+  color: #041e15;
+  background: var(--green);
+}
+
+.detail-panel {
+  padding: 18px;
+  position: sticky;
+  top: 18px;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.detail-header h2 {
+  margin-bottom: 0;
+  font-size: 24px;
+}
+
+.summary-box {
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+}
+
+.summary-box span {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--cyan);
+  font-weight: 800;
+}
+
+.summary-box p {
+  margin-bottom: 0;
+  color: #dce5f4;
+  line-height: 1.55;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.meta-grid div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+dd {
+  margin: 5px 0 0;
+  font-weight: 800;
+}
+
+.evidence-list {
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.evidence-list li {
+  padding: 12px;
+  border-left: 3px solid var(--blue);
+  background: var(--panel-soft);
+  border-radius: 0 8px 8px 0;
+  color: #dce5f4;
+  line-height: 1.45;
+}
+
+.recommendation {
+  padding: 14px;
+  border: 1px solid rgba(78, 140, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(78, 140, 255, 0.08);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.recommendation p {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+  color: #dce5f4;
+  line-height: 1.5;
+}
+
+.sanction-card {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.sanction-card h3 {
+  margin-bottom: 12px;
+}
+
+.action-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.action-bar button,
+button.secondary {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.policy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.schema-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(170px, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.policy-rule,
+.schema-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.policy-rule > span {
+  display: inline-flex;
+  margin-bottom: 14px;
+  color: var(--cyan);
+  font-weight: 900;
+}
+
+.policy-rule dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.policy-rule div {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.policy-rule div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.schema-card h3 {
+  margin-bottom: 12px;
+  color: var(--cyan);
+}
+
+.schema-card ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.schema-card li {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #dce5f4;
+  background: rgba(78, 140, 255, 0.08);
+  font-size: 13px;
+}
+
+.log-list {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.log-item {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.log-type {
+  color: #06101f;
+  background: var(--cyan);
+}
+
+.log-item strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.log-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 1120px) {
+  .login-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .login-preview {
+    display: none;
+  }
+
+  .sidebar {
+    position: static;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .policy-card {
+    display: none;
+  }
+
+  nav {
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+
+  .app-shell {
+    margin-left: 0;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .login-screen,
+  .app-shell,
+  .sidebar {
+    padding: 16px;
+  }
+
+  .topbar,
+  .panel-heading,
+  .top-actions {
+    display: grid;
+  }
+
+  .operator {
+    text-align: left;
+  }
+
+  .metrics,
+  .policy-grid,
+  .schema-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters,
+  .filters label,
+  .search input {
+    width: 100%;
+  }
+
+  .meta-grid,
+  .action-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+</style>
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <div class="login-panel">
+        <div class="brand login-brand">
+          <div class="brand-mark">CS</div>
+          <div>
+            <strong>GameGuard Desk</strong>
+            <span>운영자 제재 관리 콘솔</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Operator Login</p>
+          <h1>운영자 로그인</h1>
+          <p class="login-copy">신고 검토, 제재 판단, 운영 로그 확인은 인증된 관리자만 접근할 수 있습니다.</p>
+        </div>
+        <form id="loginForm" class="login-form">
+          <label>
+            <span>운영자 ID</span>
+            <input name="loginId" autocomplete="username" value="admin" required>
+          </label>
+          <label>
+            <span>비밀번호</span>
+            <input name="password" type="password" autocomplete="current-password" value="1234" required>
+          </label>
+          <p class="login-error" id="loginError" aria-live="polite"></p>
+          <button class="primary login-button" type="submit">로그인</button>
+        </form>
+        <div class="login-hint">시연 계정: admin / 1234</div>
+      </div>
+      <div class="login-preview" aria-hidden="true">
+        <div class="preview-topline"></div>
+        <div class="preview-card wide"></div>
+        <div class="preview-grid">
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="dashboard-screen" id="dashboardScreen" hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">CS</div>
+          <div>
+            <strong>GameGuard Desk</strong>
+            <span>채팅 신고 운영 콘솔</span>
+          </div>
+        </div>
+
+        <nav id="sidebarNav" aria-label="관리 메뉴">
+          <button class="active" type="button" data-view="inbox"><span>▦</span>신고 내역</button>
+          <button type="button" data-view="pending"><span>☷</span>검토대기</button>
+          <button type="button" data-view="completed"><span>✓</span>검토완료</button>
+          <button type="button" data-view="policy"><span>§</span>정책기준표</button>
+          <button type="button" data-view="schema"><span>DB</span>DB스키마</button>
+          <button type="button" data-view="appeals"><span>!</span>이의신청</button>
+          <button type="button" data-view="logs"><span>◎</span>운영로그</button>
+        </nav>
+
+        <div class="policy-card">
+          <span>DB 반영 구조</span>
+          <strong>신고 내역 → 제재 내역</strong>
+          <p>신고 처리 결과가 완료되면 제재번호, AI 추론 결과, 제재 종류와 기간이 연결됩니다.</p>
+        </div>
+      </aside>
+
+      <main class="app-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">2026-07-14 실시간 모니터링</p>
+            <h1>게임 채팅 신고 제재 관리</h1>
+          </div>
+          <div class="top-actions">
+            <div class="operator">
+              <span>담당자</span>
+              <strong>관리자A</strong>
+            </div>
+            <button class="logout-button" id="logoutButton" type="button">로그아웃</button>
+          </div>
+        </header>
+
+        <section class="metrics" aria-label="신고 요약">
+          <article>
+            <span>신고 내역</span>
+            <strong data-metric="total">0</strong>
+          </article>
+          <article>
+            <span>검토대기</span>
+            <strong data-metric="pending">0</strong>
+          </article>
+          <article>
+            <span>검토완료</span>
+            <strong data-metric="completed">0</strong>
+          </article>
+          <article>
+            <span>활성 제재</span>
+            <strong data-metric="highRisk">0</strong>
+          </article>
+        </section>
+
+        <div id="mainContent"></div>
+      </main>
+    </section>
+
+    <script>
+const admins = [
+  {
+    adminId: 'admin',
+    password: '1234',
+    name: '관리자A',
+    role: '게임 CS 제재 담당',
+  },
+];
+
+const users = [
+  { userId: 'U-1001', nickname: 'LunaBlade', chatBanStatus: '정상' },
+  { userId: 'U-1002', nickname: 'DarkRush77', chatBanStatus: '채팅 금지 상태' },
+  { userId: 'U-1003', nickname: 'GoldFarmPro', chatBanStatus: '정상' },
+  { userId: 'U-1004', nickname: 'QueueGhost', chatBanStatus: '정상' },
+  { userId: 'U-1005', nickname: 'MacroRunner', chatBanStatus: '계정 정지 상태' },
+  { userId: 'U-1006', nickname: 'TradeBot88', chatBanStatus: '정상' },
+];
+
+const reportHistories = [
+  {
+    reportNo: 'RPT-240714-001',
+    reportDate: '2026-07-14 10:42',
+    reporterId: 'U-1001',
+    accusedId: 'U-1002',
+    reportCategory: '욕설',
+    processResult: '대기',
+    priorOffenses: 2,
+    server: 'KR-1',
+    match: '랭크전 #84920',
+    summary: '패배 직후 팀원에게 반복적인 욕설과 가족 비하 표현을 사용했습니다.',
+    evidence: [
+      '10:38 DarkRush77: 너 때문에 졌잖아. 게임 접어라.',
+      '10:39 DarkRush77: 모욕성 표현을 반복 사용',
+      '10:40 LunaBlade: 신고합니다. 그만하세요.',
+    ],
+  },
+  {
+    reportNo: 'RPT-240714-002',
+    reportDate: '2026-07-14 10:27',
+    reporterId: 'U-1001',
+    accusedId: 'U-1003',
+    reportCategory: '스팸',
+    processResult: '대기',
+    priorOffenses: 0,
+    server: 'KR-2',
+    match: '일반전 #44218',
+    summary: '상업성 홍보 문구와 외부 링크를 채팅창에 반복 게시했습니다.',
+    evidence: [
+      '10:21 GoldFarmPro: 빠른 레벨업 대행 문의',
+      '10:22 GoldFarmPro: 동일 홍보 문구 3회 반복',
+      '10:23 GoldFarmPro: 외부 링크 공유',
+    ],
+  },
+  {
+    reportNo: 'RPT-240714-003',
+    reportDate: '2026-07-14 09:58',
+    reporterId: 'U-1001',
+    accusedId: 'U-1004',
+    reportCategory: '어뷰징',
+    processResult: '대기',
+    priorOffenses: 1,
+    server: 'KR-3',
+    match: '경쟁전 #77504',
+    summary: '고의 패배, 반복 탈주, 특정 계정과의 비정상 매칭 패턴이 감지되었습니다.',
+    evidence: [
+      '09:51 QueueGhost: 이번 판은 그냥 던질게',
+      '09:53 동일 파티 계정과 5회 연속 매칭',
+      '09:56 전투 참여 없이 리스폰 지역 대기',
+    ],
+  },
+  {
+    reportNo: 'RPT-240714-004',
+    reportDate: '2026-07-14 09:31',
+    reporterId: 'U-1001',
+    accusedId: 'U-1006',
+    reportCategory: '스팸',
+    processResult: '대기',
+    priorOffenses: 2,
+    server: 'KR-2',
+    match: '월드 채팅',
+    summary: '거래 사기 의심 문구를 여러 채널에 반복 발송했습니다.',
+    evidence: [
+      '09:28 TradeBot88: 아이템 시세보다 싸게 정리합니다',
+      '09:29 같은 문구를 6개 채널에 게시',
+      '09:30 이전 스팸 제재 2회 확인',
+    ],
+  },
+  {
+    reportNo: 'RPT-240713-014',
+    reportDate: '2026-07-13 22:14',
+    reporterId: 'U-1001',
+    accusedId: 'U-1002',
+    reportCategory: '욕설',
+    processResult: '처리 완료',
+    priorOffenses: 0,
+    server: 'KR-1',
+    match: '랭크전 #83715',
+    summary: '분쟁성 채팅이 있었으나 직접적 위협 표현은 확인되지 않았습니다.',
+    evidence: [
+      '22:10 DarkRush77: 플레이 좀 집중해 주세요',
+      '22:11 LunaBlade: 말투가 불쾌합니다',
+      '22:12 상호 감정 표현 이후 추가 발언 없음',
+    ],
+    sanctionNo: 'SAN-240713-014',
+  },
+  {
+    reportNo: 'RPT-240713-009',
+    reportDate: '2026-07-13 19:36',
+    reporterId: 'U-1001',
+    accusedId: 'U-1005',
+    reportCategory: '어뷰징',
+    processResult: '처리 완료',
+    priorOffenses: 3,
+    server: 'KR-4',
+    match: '이벤트 던전 #15888',
+    summary: '비정상 반복 행동과 자동 입력 의심 패턴이 로그에서 확인되었습니다.',
+    evidence: [
+      '19:20 0.7초 간격으로 동일 행동 반복',
+      '19:25 전투 상황 변화에도 입력 패턴 동일',
+      '19:31 이전 동일 유형 제재 3회 확인',
+    ],
+    sanctionNo: 'SAN-240713-009',
+  },
+];
+
+const sanctionHistories = [
+  {
+    sanctionNo: 'SAN-240713-014',
+    sanctionDate: '2026-07-13 22:22',
+    targetUserId: 'U-1002',
+    aiResult: '욕설 1단계',
+    sanctionType: '주의 안내',
+    sanctionPeriodDays: 0,
+    adminId: 'admin',
+  },
+  {
+    sanctionNo: 'SAN-240713-009',
+    sanctionDate: '2026-07-13 19:48',
+    targetUserId: 'U-1005',
+    aiResult: '어뷰징 3단계',
+    sanctionType: '계정 정지',
+    sanctionPeriodDays: 30,
+    adminId: 'admin',
+  },
+];
+
+const appeals = [
+  {
+    appealNo: 'APL-240714-001',
+    userId: 'U-1005',
+    sanctionNo: 'SAN-240713-009',
+    requestedAt: '2026-07-14 11:10',
+    status: '검토대기',
+    message: '매크로가 아니라 네트워크 지연 때문에 입력이 반복된 것 같습니다.',
+  },
+  {
+    appealNo: 'APL-240713-002',
+    userId: 'U-1002',
+    sanctionNo: 'SAN-240713-014',
+    requestedAt: '2026-07-13 23:01',
+    status: '검토완료',
+    message: '상대가 먼저 시비를 걸어 감정적으로 대응했습니다.',
+  },
+];
+
+const dbSchema = [
+  { name: '유저', columns: ['ID', '채팅 금지 상태'] },
+  { name: '관리자', columns: ['ID', 'PWD'] },
+  { name: '신고 내역', columns: ['신고번호', '신고 일시', '신고자 ID', '피신고자 ID', '신고 처리 결과'] },
+  { name: '제재 내역', columns: ['제재번호', '제재 일시', '제재 대상자 ID', 'AI 추론 결과', '제재 종류', '제재 기간(n일)'] },
+  { name: '이의 신청', columns: ['신청번호', '유저 ID', '제재번호', '신청 일시', '처리 상태'] },
+];
+
+const policyRules = [
+  {
+    category: '욕설',
+    first: '주의 안내 또는 채팅 금지 24시간',
+    repeat: '채팅 금지 7일',
+    severe: '욕설 3단계 이상은 반복 이력과 함께 즉시 상향 제재',
+  },
+  {
+    category: '스팸',
+    first: '경고',
+    repeat: '채팅 금지 24시간',
+    severe: '사기 링크, 현금 거래 유도는 계정 정지 검토',
+  },
+  {
+    category: '어뷰징',
+    first: '계정 정지 15일',
+    repeat: '계정 정지 30일',
+    severe: '승부 조작, 매크로, 고의 패배는 공정성 침해로 우선 처리',
+  },
+];
+
+const operationLogs = [
+  { time: '2026-07-14 10:51', actor: 'admin', event: 'RPT-240714-001 신고 상세 열람', type: '조회' },
+  { time: '2026-07-14 10:45', actor: 'system', event: '어뷰징 위험 신고 1건 자동 분류', type: '탐지' },
+  { time: '2026-07-14 10:32', actor: 'admin', event: '스팸 신고 필터 적용', type: '필터' },
+  { time: '2026-07-13 22:22', actor: 'admin', event: 'SAN-240713-014 제재 내역 생성', type: '제재' },
+  { time: '2026-07-13 19:48', actor: 'admin', event: 'SAN-240713-009 제재 내역 생성', type: '제재' },
+];
+
+const state = {
+  loggedIn: false,
+  currentView: 'inbox',
+  selectedReportNo: reportHistories[0].reportNo,
+  processResult: 'all',
+  category: 'all',
+  search: '',
+  operatorName: '관리자A',
+};
+
+function authenticateOperator(id, password) {
+  return admins.some((admin) => admin.adminId === id && admin.password === password);
+}
+
+function findUser(userId) {
+  return users.find((user) => user.userId === userId) ?? { userId, nickname: userId, chatBanStatus: '알 수 없음' };
+}
+
+function calculateRecommendation(report) {
+  const text = `${report.reportCategory ?? report.category} ${report.evidence.join(' ')} ${report.summary ?? ''}`;
+  const priorOffenses = report.priorOffenses ?? 0;
+  const hasHarassment = /패드립|모욕|비하|욕설|위협|혐오/.test(text);
+  const hasAbuse = /어뷰징|승부 조작|고의 패배|비정상|자동 입력|반복 매칭|던질|매크로/.test(text);
+  const hasSpam = /스팸|홍보|외부 링크|반복 게시|반복|사기|거래/.test(text);
+
+  if (hasAbuse && priorOffenses >= 3) {
+    return {
+      severity: '매우 높음',
+      action: '계정 정지',
+      durationDays: 30,
+      aiResult: '어뷰징 3단계',
+      reason: '어뷰징 정황과 다수의 이전 제재 이력이 함께 확인되었습니다.',
+    };
+  }
+
+  if (hasAbuse) {
+    return {
+      severity: '높음',
+      action: '계정 정지',
+      durationDays: 15,
+      aiResult: '어뷰징 2단계',
+      reason: '경기 공정성을 해치는 행동 패턴이 확인되었습니다.',
+    };
+  }
+
+  if (hasHarassment && priorOffenses >= 2) {
+    return {
+      severity: '높음',
+      action: '채팅 금지',
+      durationDays: 7,
+      aiResult: '욕설 3단계',
+      reason: '강한 모욕 표현과 반복 제재 이력이 함께 확인되었습니다.',
+    };
+  }
+
+  if (hasHarassment) {
+    return {
+      severity: '중간',
+      action: '채팅 금지',
+      durationDays: 1,
+      aiResult: '욕설 2단계',
+      reason: '다른 이용자에게 불쾌감을 주는 채팅 표현이 확인되었습니다.',
+    };
+  }
+
+  if (hasSpam && priorOffenses > 0) {
+    return {
+      severity: '중간',
+      action: '채팅 금지',
+      durationDays: 1,
+      aiResult: '스팸 2단계',
+      reason: '반복 스팸 신고 이력이 있어 단순 경고보다 높은 조치가 필요합니다.',
+    };
+  }
+
+  if (hasSpam) {
+    return {
+      severity: '낮음',
+      action: '경고',
+      durationDays: 0,
+      aiResult: '스팸 1단계',
+      reason: '초회성 스팸으로 판단되어 경고 후 재발 여부를 관찰합니다.',
+    };
+  }
+
+  return {
+    severity: '낮음',
+    action: '주의 안내',
+    durationDays: 0,
+    aiResult: '정상 또는 경미',
+    reason: '명확한 중대 위반은 확인되지 않아 안내 조치가 적절합니다.',
+  };
+}
+
+function getReportsForView(viewName = state.currentView) {
+  if (viewName === 'pending') {
+    return reportHistories.filter((report) => report.processResult === '대기');
+  }
+
+  if (viewName === 'completed') {
+    return reportHistories.filter((report) => report.processResult === '처리 완료');
+  }
+
+  return reportHistories;
+}
+
+function getFilteredReports() {
+  return getReportsForView().filter((report) => {
+    const reporter = findUser(report.reporterId);
+    const accused = findUser(report.accusedId);
+    const keyword = `${report.reportNo} ${report.reporterId} ${report.accusedId} ${reporter.nickname} ${accused.nickname} ${report.summary}`.toLowerCase();
+    const matchesResult = state.processResult === 'all' || report.processResult === state.processResult;
+    const matchesCategory = state.category === 'all' || report.reportCategory === state.category;
+    const matchesSearch = keyword.includes(state.search.toLowerCase());
+    return matchesResult && matchesCategory && matchesSearch;
+  });
+}
+
+function severityClass(severity) {
+  return {
+    '매우 높음': 'critical',
+    높음: 'high',
+    중간: 'medium',
+    낮음: 'low',
+  }[severity] ?? 'low';
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function formatDuration(days) {
+  return days > 0 ? `${days}일` : '해당 없음';
+}
+
+function setView(viewName) {
+  state.currentView = viewName;
+  state.processResult = 'all';
+  state.category = 'all';
+  state.search = '';
+  state.selectedReportNo = getReportsForView(viewName)[0]?.reportNo ?? reportHistories[0].reportNo;
+  render();
+}
+
+function renderMetrics() {
+  const pending = reportHistories.filter((report) => report.processResult === '대기').length;
+  const completed = reportHistories.filter((report) => report.processResult === '처리 완료').length;
+  const activeSanctions = sanctionHistories.filter((sanction) => sanction.sanctionPeriodDays > 0).length;
+
+  document.querySelector('[data-metric="total"]').textContent = reportHistories.length;
+  document.querySelector('[data-metric="pending"]').textContent = pending;
+  document.querySelector('[data-metric="completed"]').textContent = completed;
+  document.querySelector('[data-metric="highRisk"]').textContent = activeSanctions;
+}
+
+function renderNav() {
+  document.querySelectorAll('[data-view]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.view === state.currentView);
+  });
+}
+
+function renderReportTable() {
+  const tbody = document.querySelector('#reportRows');
+  const filtered = getFilteredReports();
+
+  tbody.innerHTML = filtered.map((report) => {
+    const recommendation = calculateRecommendation(report);
+    const reporter = findUser(report.reporterId);
+    const accused = findUser(report.accusedId);
+    const selected = report.reportNo === state.selectedReportNo ? 'selected' : '';
+
+    return `
+      <tr class="${selected}" data-report-no="${escapeHtml(report.reportNo)}" tabindex="0">
+        <td>
+          <strong>${escapeHtml(report.reportNo)}</strong>
+          <span>${escapeHtml(report.reportDate)}</span>
+        </td>
+        <td>
+          <strong>${escapeHtml(report.reporterId)}</strong>
+          <span>${escapeHtml(reporter.nickname)}</span>
+        </td>
+        <td>
+          <strong>${escapeHtml(report.accusedId)}</strong>
+          <span>${escapeHtml(accused.nickname)}</span>
+        </td>
+        <td>${escapeHtml(report.reportCategory)}</td>
+        <td><span class="badge ${report.processResult === '대기' ? 'pending' : 'done'}">${escapeHtml(report.processResult)}</span></td>
+        <td><span class="risk ${severityClass(recommendation.severity)}">${escapeHtml(recommendation.aiResult)}</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">조건에 맞는 신고 내역이 없습니다.</td></tr>';
+  }
+}
+
+function renderDetail() {
+  const filtered = getFilteredReports();
+  const report = filtered.find((item) => item.reportNo === state.selectedReportNo) ?? filtered[0] ?? reportHistories[0];
+  state.selectedReportNo = report.reportNo;
+
+  const recommendation = calculateRecommendation(report);
+  const reporter = findUser(report.reporterId);
+  const accused = findUser(report.accusedId);
+  const sanction = sanctionHistories.find((item) => item.sanctionNo === report.sanctionNo);
+  const previewSanction = sanction ?? {
+    sanctionNo: '처리 시 자동 생성',
+    sanctionDate: '처리 대기',
+    targetUserId: report.accusedId,
+    aiResult: recommendation.aiResult,
+    sanctionType: recommendation.action,
+    sanctionPeriodDays: recommendation.durationDays,
+    adminId: admins[0].adminId,
+  };
+
+  document.querySelector('#detailPanel').innerHTML = `
+    <div class="detail-header">
+      <div>
+        <p class="eyebrow">신고번호 ${escapeHtml(report.reportNo)}</p>
+        <h2>${escapeHtml(accused.nickname)}</h2>
+      </div>
+      <span class="badge ${report.processResult === '대기' ? 'pending' : 'done'}">${escapeHtml(report.processResult)}</span>
+    </div>
+
+    <div class="summary-box">
+      <span>${escapeHtml(report.reportCategory)}</span>
+      <p>${escapeHtml(report.summary)}</p>
+    </div>
+
+    <dl class="meta-grid">
+      <div><dt>신고 일시</dt><dd>${escapeHtml(report.reportDate)}</dd></div>
+      <div><dt>신고자 ID</dt><dd>${escapeHtml(report.reporterId)} · ${escapeHtml(reporter.nickname)}</dd></div>
+      <div><dt>피신고자 ID</dt><dd>${escapeHtml(report.accusedId)} · ${escapeHtml(accused.nickname)}</dd></div>
+      <div><dt>채팅 금지 상태</dt><dd>${escapeHtml(accused.chatBanStatus)}</dd></div>
+    </dl>
+
+    <section>
+      <h3>채팅 및 행동 로그</h3>
+      <ul class="evidence-list">
+        ${report.evidence.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}
+      </ul>
+    </section>
+
+    <section class="recommendation">
+      <div>
+        <p class="eyebrow">AI 추론 결과</p>
+        <h3>${escapeHtml(previewSanction.aiResult)}</h3>
+      </div>
+      <span class="risk ${severityClass(recommendation.severity)}">${escapeHtml(recommendation.severity)}</span>
+      <p>${escapeHtml(recommendation.reason)}</p>
+    </section>
+
+    <section class="sanction-card">
+      <h3>제재 내역 매핑</h3>
+      <dl class="meta-grid">
+        <div><dt>제재번호</dt><dd>${escapeHtml(previewSanction.sanctionNo)}</dd></div>
+        <div><dt>제재 일시</dt><dd>${escapeHtml(previewSanction.sanctionDate)}</dd></div>
+        <div><dt>제재 종류</dt><dd>${escapeHtml(previewSanction.sanctionType)}</dd></div>
+        <div><dt>제재 기간</dt><dd>${escapeHtml(formatDuration(previewSanction.sanctionPeriodDays))}</dd></div>
+      </dl>
+    </section>
+
+    <div class="action-bar">
+      <button class="secondary" type="button" data-action="warn">주의 안내</button>
+      <button class="secondary" type="button" data-action="chat-ban">채팅 금지</button>
+      <button class="primary" type="button" data-action="complete">${report.processResult === '처리 완료' ? '처리 완료됨' : '추천 제재로 처리'}</button>
+    </div>
+  `;
+}
+
+function renderQueueView() {
+  const titleMap = {
+    inbox: ['신고 내역', 'DB의 신고 내역 테이블 기준으로 신고번호, 신고 일시, 신고자 ID, 피신고자 ID, 처리 결과를 확인합니다.'],
+    pending: ['검토대기', '신고 처리 결과가 대기인 항목만 표시합니다.'],
+    completed: ['검토완료', '신고 처리 결과가 처리 완료인 항목과 연결된 제재 내역을 확인합니다.'],
+  };
+  const [title, description] = titleMap[state.currentView] ?? titleMap.inbox;
+
+  document.querySelector('#mainContent').innerHTML = `
+    <section class="workspace">
+      <section class="queue-panel" aria-labelledby="queueTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Report History</p>
+            <h2 id="queueTitle">${title}</h2>
+            <p class="panel-description">${description}</p>
+          </div>
+          <div class="filters">
+            <label>
+              <span>처리 결과</span>
+              <select id="resultFilter">
+                <option value="all">전체</option>
+                <option value="대기">대기</option>
+                <option value="처리 완료">처리 완료</option>
+              </select>
+            </label>
+            <label>
+              <span>유형</span>
+              <select id="categoryFilter">
+                <option value="all">전체</option>
+                <option value="욕설">욕설</option>
+                <option value="스팸">스팸</option>
+                <option value="어뷰징">어뷰징</option>
+              </select>
+            </label>
+            <label class="search">
+              <span>검색</span>
+              <input id="searchInput" type="search" placeholder="ID, 신고번호 검색">
+            </label>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>신고번호 / 신고 일시</th>
+                <th>신고자 ID</th>
+                <th>피신고자 ID</th>
+                <th>유형</th>
+                <th>신고 처리 결과</th>
+                <th>AI 추론 결과</th>
+              </tr>
+            </thead>
+            <tbody id="reportRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="detail-panel" id="detailPanel" aria-label="신고 상세"></aside>
+    </section>
+  `;
+
+  document.querySelector('#resultFilter').value = state.processResult;
+  document.querySelector('#categoryFilter').value = state.category;
+  document.querySelector('#searchInput').value = state.search;
+  renderReportTable();
+  renderDetail();
+}
+
+function renderPolicyView() {
+  document.querySelector('#mainContent').innerHTML = `
+    <section class="single-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Policy Matrix</p>
+          <h2>정책기준표</h2>
+          <p class="panel-description">AI 추론 결과와 반복 이력을 제재 종류, 제재 기간으로 바꾸는 기준입니다.</p>
+        </div>
+      </div>
+      <div class="policy-grid">
+        ${policyRules.map((rule) => `
+          <article class="policy-rule">
+            <span>${escapeHtml(rule.category)}</span>
+            <dl>
+              <div><dt>초회</dt><dd>${escapeHtml(rule.first)}</dd></div>
+              <div><dt>반복</dt><dd>${escapeHtml(rule.repeat)}</dd></div>
+              <div><dt>가중 기준</dt><dd>${escapeHtml(rule.severe)}</dd></div>
+            </dl>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderSchemaView() {
+  document.querySelector('#mainContent').innerHTML = `
+    <section class="single-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">DB Schema</p>
+          <h2>DB 스키마</h2>
+          <p class="panel-description">제공한 스키마를 프론트엔드 데이터 구조와 화면 컬럼에 그대로 반영했습니다.</p>
+        </div>
+      </div>
+      <div class="schema-grid">
+        ${dbSchema.map((table) => `
+          <article class="schema-card">
+            <h3>${escapeHtml(table.name)}</h3>
+            <ul>
+              ${table.columns.map((column) => `<li>${escapeHtml(column)}</li>`).join('')}
+            </ul>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderAppealsView() {
+  document.querySelector('#mainContent').innerHTML = `
+    <section class="single-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Appeals</p>
+          <h2>이의 신청</h2>
+          <p class="panel-description">제재번호와 유저 ID로 연결된 이의 신청 목록입니다.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>신청번호</th>
+              <th>유저 ID</th>
+              <th>제재번호</th>
+              <th>신청 일시</th>
+              <th>처리 상태</th>
+              <th>내용</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${appeals.map((appeal) => `
+              <tr>
+                <td><strong>${escapeHtml(appeal.appealNo)}</strong></td>
+                <td>${escapeHtml(appeal.userId)}<span>${escapeHtml(findUser(appeal.userId).nickname)}</span></td>
+                <td>${escapeHtml(appeal.sanctionNo)}</td>
+                <td>${escapeHtml(appeal.requestedAt)}</td>
+                <td><span class="badge ${appeal.status === '검토대기' ? 'pending' : 'done'}">${escapeHtml(appeal.status)}</span></td>
+                <td>${escapeHtml(appeal.message)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function renderLogsView() {
+  document.querySelector('#mainContent').innerHTML = `
+    <section class="single-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Operation Trail</p>
+          <h2>운영로그</h2>
+          <p class="panel-description">신고 조회, AI 분류, 제재 내역 생성 등 관리자 활동 이력입니다.</p>
+        </div>
+      </div>
+      <div class="log-list">
+        ${operationLogs.map((log) => `
+          <article class="log-item">
+            <span class="log-type">${escapeHtml(log.type)}</span>
+            <div>
+              <strong>${escapeHtml(log.event)}</strong>
+              <p>${escapeHtml(log.time)} · ${escapeHtml(log.actor)}</p>
+            </div>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderCurrentView() {
+  if (['inbox', 'pending', 'completed'].includes(state.currentView)) {
+    renderQueueView();
+    return;
+  }
+
+  if (state.currentView === 'policy') {
+    renderPolicyView();
+    return;
+  }
+
+  if (state.currentView === 'schema') {
+    renderSchemaView();
+    return;
+  }
+
+  if (state.currentView === 'appeals') {
+    renderAppealsView();
+    return;
+  }
+
+  if (state.currentView === 'logs') {
+    renderLogsView();
+  }
+}
+
+function addOperationLog(event, type = '제재') {
+  operationLogs.unshift({
+    time: '2026-07-14 10:58',
+    actor: admins[0].adminId,
+    event,
+    type,
+  });
+}
+
+function render() {
+  if (!state.loggedIn) return;
+  renderMetrics();
+  renderNav();
+  renderCurrentView();
+}
+
+function createSanctionFromReport(report, recommendation, overrideType) {
+  const sanctionType = overrideType ?? recommendation.action;
+  const sanctionPeriodDays = sanctionType === '주의 안내' || sanctionType === '경고' ? 0 : recommendation.durationDays;
+  const sanctionNo = `SAN-${report.reportNo.replace('RPT-', '')}`;
+
+  return {
+    sanctionNo,
+    sanctionDate: '2026-07-14 10:58',
+    targetUserId: report.accusedId,
+    aiResult: recommendation.aiResult,
+    sanctionType,
+    sanctionPeriodDays,
+    adminId: admins[0].adminId,
+  };
+}
+
+function handleDecision(action) {
+  const report = reportHistories.find((item) => item.reportNo === state.selectedReportNo);
+  if (!report) return;
+
+  const recommendation = calculateRecommendation(report);
+  const overrideType = action === 'warn' ? '주의 안내' : action === 'chat-ban' ? '채팅 금지' : undefined;
+  const sanction = createSanctionFromReport(report, recommendation, overrideType);
+  const existingIndex = sanctionHistories.findIndex((item) => item.sanctionNo === sanction.sanctionNo);
+
+  if (existingIndex >= 0) {
+    sanctionHistories[existingIndex] = sanction;
+  } else {
+    sanctionHistories.unshift(sanction);
+  }
+
+  report.processResult = '처리 완료';
+  report.sanctionNo = sanction.sanctionNo;
+
+  const targetUser = findUser(report.accusedId);
+  if (sanction.sanctionType === '채팅 금지') {
+    targetUser.chatBanStatus = '채팅 금지 상태';
+  }
+  if (sanction.sanctionType === '계정 정지') {
+    targetUser.chatBanStatus = '계정 정지 상태';
+  }
+
+  addOperationLog(`${sanction.sanctionNo} 제재 내역 생성 (${report.accusedId}, ${sanction.sanctionType})`);
+  state.selectedReportNo = getFilteredReports()[0]?.reportNo ?? reportHistories[0].reportNo;
+  render();
+}
+
+function bindEvents() {
+  document.querySelector('#loginForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const loginId = String(form.get('loginId') ?? '');
+    const password = String(form.get('password') ?? '');
+    const error = document.querySelector('#loginError');
+
+    if (!authenticateOperator(loginId, password)) {
+      error.textContent = '운영자 ID 또는 비밀번호가 올바르지 않습니다.';
+      return;
+    }
+
+    state.loggedIn = true;
+    document.body.classList.add('is-logged-in');
+    document.querySelector('#loginScreen').setAttribute('hidden', '');
+    document.querySelector('#dashboardScreen').removeAttribute('hidden');
+    render();
+  });
+
+  document.querySelector('#logoutButton').addEventListener('click', () => {
+    state.loggedIn = false;
+    document.body.classList.remove('is-logged-in');
+    document.querySelector('#dashboardScreen').setAttribute('hidden', '');
+    document.querySelector('#loginScreen').removeAttribute('hidden');
+  });
+
+  document.querySelector('#sidebarNav').addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-view]');
+    if (!button) return;
+    setView(button.dataset.view);
+  });
+
+  document.querySelector('#mainContent').addEventListener('click', (event) => {
+    const row = event.target.closest('tr[data-report-no]');
+    if (row) {
+      state.selectedReportNo = row.dataset.reportNo;
+      render();
+      return;
+    }
+
+    const decision = event.target.closest('button[data-action]');
+    if (decision) {
+      handleDecision(decision.dataset.action);
+    }
+  });
+
+  document.querySelector('#mainContent').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    const row = event.target.closest('tr[data-report-no]');
+    if (!row) return;
+    state.selectedReportNo = row.dataset.reportNo;
+    render();
+  });
+
+  document.querySelector('#mainContent').addEventListener('change', (event) => {
+    if (event.target.id === 'resultFilter') {
+      state.processResult = event.target.value;
+      state.selectedReportNo = getFilteredReports()[0]?.reportNo ?? reportHistories[0].reportNo;
+      render();
+    }
+
+    if (event.target.id === 'categoryFilter') {
+      state.category = event.target.value;
+      state.selectedReportNo = getFilteredReports()[0]?.reportNo ?? reportHistories[0].reportNo;
+      render();
+    }
+  });
+
+  document.querySelector('#mainContent').addEventListener('input', (event) => {
+    if (event.target.id !== 'searchInput') return;
+    state.search = event.target.value;
+    state.selectedReportNo = getFilteredReports()[0]?.reportNo ?? reportHistories[0].reportNo;
+    render();
+  });
+}
+
+if (typeof document !== 'undefined') {
+  bindEvents();
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    admins,
+    appeals,
+    authenticateOperator,
+    calculateRecommendation,
+    dbSchema,
+    getReportsForView,
+    policyRules,
+    reportHistories,
+    sanctionHistories,
+    users,
+  };
+}
+
+</script>
+  </body>
+</html>
