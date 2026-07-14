@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════
+   ADMIN DASHBOARD — 채팅/음성 신고 관리
+   (style.css의 :root 변수·폰트·overlay/modal/toast/btn 클래스를 그대로 사용)
+═══════════════════════════════════════════════════════ */
+body.admin-page { user-select:text; }
+
+.adm-main { flex:1; overflow-y:auto; padding:20px 28px 40px; }
+.adm-main::-webkit-scrollbar { width:8px; }
+.adm-main::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+/* Admin chip in header */
+.admin-chip { display:flex; align-items:center; gap:8px; }
+.admin-role { font-size:10px; font-family:var(--mono); color:var(--accent); background:var(--accent-glow); border:1px solid var(--accent); border-radius:5px; padding:2px 7px; }
+
+/* ── Stat cards ── */
+.adm-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+.adm-stat-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+.adm-stat-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); margin-bottom:8px; }
+.adm-stat-value { font-family:var(--mono); font-size:28px; font-weight:700; }
+.adm-stat-value.danger { color:var(--danger); }
+.adm-stat-value.success { color:var(--success); }
+.adm-stat-sub { font-size:11px; color:var(--text-dim); margin-top:4px; }
+
+/* ── Tabs ── */
+.adm-tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+.adm-tab { background:transparent; border:none; color:var(--text-muted); font-family:var(--font); font-size:13px; font-weight:600; padding:10px 6px; cursor:pointer; position:relative; display:flex; align-items:center; gap:7px; margin-right:14px; }
+.adm-tab::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:transparent; border-radius:2px; }
+.adm-tab.active { color:var(--text); }
+.adm-tab.active::after { background:var(--accent); }
+.adm-badge { font-family:var(--mono); font-size:10px; background:var(--danger); color:#fff; border-radius:9px; padding:1px 7px; min-width:16px; text-align:center; }
+.adm-badge.zero { background:var(--border); color:var(--text-muted); }
+
+/* ── Filters ── */
+.adm-filters { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.adm-select, .adm-input { background:var(--panel); border:1px solid var(--border); color:var(--text); font-family:var(--font); font-size:12px; padding:8px 10px; border-radius:8px; outline:none; }
+.adm-select:focus, .adm-input:focus { border-color:var(--accent); }
+.adm-input { flex:1; min-width:160px; }
+.adm-input::placeholder { color:var(--text-dim); }
+
+/* ── Queue cards ── */
+.adm-queue-list { display:flex; flex-direction:column; gap:12px; }
+.q-empty { text-align:center; padding:60px 20px; color:var(--text-muted); font-size:13px; }
+.q-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+.q-card.sla-danger { border-color:var(--danger); }
+.q-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+.q-user { display:flex; align-items:center; gap:10px; }
+.q-avatar { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,var(--danger),#B060FF); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+.q-username { font-size:14px; font-weight:700; }
+.q-meta { font-size:11px; color:var(--text-muted); font-family:var(--mono); margin-top:2px; }
+.q-badges { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.q-reason-tag { font-family:var(--mono); font-size:10px; font-weight:700; padding:3px 9px; border-radius:6px; border:1px solid; white-space:nowrap; }
+.q-dup { font-family:var(--mono); font-size:10px; color:var(--accent); background:var(--accent-glow); border:1px solid var(--accent); padding:3px 8px; border-radius:6px; white-space:nowrap; }
+.q-sla { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:6px; white-space:nowrap; }
+.q-sla.ok { color:var(--text-muted); }
+.q-sla.warn { color:#FF9F43; }
+.q-sla.danger { color:var(--danger); font-weight:700; }
+
+.q-context { background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:10px 12px; display:flex; flex-direction:column; gap:7px; margin-bottom:12px; }
+.q-ctx-line { font-size:12px; }
+.q-ctx-line.flagged { background:var(--danger-glow); margin:0 -6px; padding:4px 6px; border-radius:6px; border-left:2px solid var(--danger); }
+.q-ctx-name { font-family:var(--mono); font-weight:700; font-size:11px; color:var(--text-muted); margin-right:7px; }
+.q-ctx-line.flagged .q-ctx-name { color:var(--danger); }
+.q-ctx-time { font-family:var(--mono); font-size:10px; color:var(--text-dim); }
+.q-ctx-text { color:#BBC0DF; line-height:1.4; margin-top:2px; }
+
+.q-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.q-history-note { font-size:11px; color:var(--text-dim); }
+.q-history-note.warn { color:#FF9F43; }
+.q-actions { display:flex; gap:8px; }
+.btn-dismiss { background:transparent; border:1px solid var(--border); color:var(--text-muted); padding:8px 16px; }
+.btn-dismiss:hover { border-color:var(--text-muted); color:var(--text); }
+.btn-sanction { background:var(--danger); color:#fff; padding:8px 16px; }
+.btn-sanction:hover { background:#E63D5F; }
+
+/* ── History table ── */
+.adm-table-wrap { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.adm-table { width:100%; border-collapse:collapse; font-size:12px; }
+.adm-table th { text-align:left; font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); padding:11px 14px; border-bottom:1px solid var(--border); background:rgba(21,24,41,.6); }
+.adm-table td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.adm-table tr:last-child td { border-bottom:none; }
+.adm-table tbody tr { cursor:pointer; transition:background .12s; }
+.adm-table tbody tr:hover { background:rgba(108,99,255,.06); }
+.result-tag { font-family:var(--mono); font-size:10px; font-weight:700; padding:3px 9px; border-radius:6px; border:1px solid; white-space:nowrap; }
+.result-tag.sanctioned { color:var(--danger); border-color:var(--danger); background:var(--danger-glow); }
+.result-tag.dismissed { color:var(--text-muted); border-color:var(--border); background:transparent; }
+
+/* ── Modal extras (sanction/dismiss/detail) ── */
+.modal.wide { width:420px; }
+.adm-field { margin-bottom:14px; }
+.adm-field label { display:block; font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); margin-bottom:6px; }
+.adm-field select, .adm-field textarea { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--font); font-size:13px; padding:9px 11px; border-radius:8px; outline:none; resize:vertical; }
+.adm-field select:focus, .adm-field textarea:focus { border-color:var(--accent); }
+.adm-field textarea { min-height:64px; line-height:1.4; }
+.detail-grid { display:grid; grid-template-columns:auto 1fr; gap:8px 14px; font-size:12px; margin-bottom:14px; }
+.detail-grid dt { color:var(--text-muted); font-family:var(--mono); font-size:11px; }
+.detail-grid dd { color:var(--text); }
