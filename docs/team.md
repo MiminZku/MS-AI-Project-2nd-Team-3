@@ -8,6 +8,6 @@
 | 강민기 | Mingi Kang | 백엔드 & 기술 팀장 | |
 | 박성은 | Sung Eun Park | 백엔드 & 총괄 팀장  | |
 | 이준석 | leejunseok | 백엔드 | |
-| 전재희 | jaehee.jeon | 백엔드 | |
-| 최진웅 | bareph | 프론트엔드(user) | |
-| 황선주 | seonju | 프론트엔드(관리자) | |
+| 전재희 | jaehee.jeon | 백엔드 | 16일 이후 out |
+| 최진웅 | bareph | 프론트엔드(user 인터페이스) | |
+| 황선주 | seonju | 프론트엔드(관리자 인터페이스) | |
