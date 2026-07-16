@@ -50,6 +50,13 @@ function handleConnection(ws) {
       return;
     }
 
+    if (['webrtc_offer', 'webrtc_answer', 'webrtc_ice_candidate'].includes(data.type)) {
+      for (const other of clients) {
+        if (other !== ws) send(other, data);
+      }
+      return;
+    }
+
     if (data.type !== 'chat') return;
     if (typeof data.user !== 'string' || typeof data.text !== 'string') return;
     const text = data.text.trim().slice(0, MAX_TEXT_LEN);

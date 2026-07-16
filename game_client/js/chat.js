@@ -8,7 +8,6 @@ function nowStr() {
 }
 function sendMsg() {
   const inp = $id('chatInput'), text = inp.value.trim();
-  if (chatMuted) return;
   if (!text) return;
   inp.value = '';
 
@@ -27,51 +26,14 @@ $id('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') sendMsg
 let ws = null;
 let MY_NAME = null; // auth.js의 닉네임 입력에서 설정됨 (모드 선택 전에 반드시 정해짐)
 let currentOpponentName = null; // 서버가 'opponent' 메시지로 알려줌 (같은 방에 상대가 있을 때만 값이 있음)
-let chatMuted = false;
+const FIXED_SERVER_ADDR = '172.16.30.143:3000';
 
 function opponentName() {
   return currentOpponentName || '상대방';
 }
 
 function getHttpBase() {
-  const addr = ($id('serverAddr')?.value || 'localhost:3000').trim();
-  return `http://${addr}`;
-}
-
-function updateChatMuteUI() {
-  const input = $id('chatInput');
-  const sendButton = $id('sendBtn');
-  if (input) input.disabled = chatMuted;
-  if (sendButton) sendButton.disabled = chatMuted;
-}
-
-async function loginToChatServer() {
-  if (!MY_NAME) {
-    showToast('ID를 먼저 입력해 주세요.');
-    return false;
-  }
-
-  try {
-    const response = await fetch(`${getHttpBase()}/api/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: MY_NAME })
-    });
-    if (!response.ok) throw new Error(`login request failed: ${response.status}`);
-
-    const data = await response.json();
-    if (data.status !== 'ok') throw new Error('login was rejected');
-
-    MY_NAME = data.user_id || MY_NAME;
-    chatMuted = data.is_muted === true;
-    updateChatMuteUI();
-    if (chatMuted) showToast('채팅이 금지된 계정입니다.');
-    return true;
-  } catch (err) {
-    console.warn('채팅 로그인 요청 실패:', err);
-    showToast('채팅 서버 로그인에 실패했습니다.');
-    return false;
-  }
+  return `http://${FIXED_SERVER_ADDR}`;
 }
 
 function connectChat() {
@@ -83,14 +45,13 @@ function connectChat() {
     ws.close();
   }
 
-  const addr = ($id('serverAddr')?.value || 'localhost:3000').trim();
-  const url = `ws://${addr}`;
+  const url = `ws://${FIXED_SERVER_ADDR}`;
   setChatStatus('🟡 연결 중...', '#FF9F43');
   try {
     ws = new WebSocket(url);
 
     ws.onopen = () => {
-      setChatStatus(chatMuted ? '🔇 채팅 금지' : '🟢 서버 연결됨', chatMuted ? 'var(--danger)' : 'var(--success)');
+      setChatStatus('🟢 서버 연결됨', 'var(--success)');
       appendSystemMsg('— 채팅 서버에 연결되었습니다 —');
       ws.send(JSON.stringify({ type: 'identify', user: MY_NAME })); // 내 닉네임을 서버에 알림
     };
@@ -114,6 +75,9 @@ function connectChat() {
           appendSystemMsg(`— ${escHtml(prevOpponent)}님이 퇴장했습니다 —`);
         }
         updateOpponentDisplay();
+        if (data.name) maybeStartWebRTC();
+      } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate') {
+        handleWebRtcMessage(data);
       } else if (data.type === 'full') {
         setChatStatus('🔴 방이 가득 참', 'var(--danger)');
         appendSystemMsg('— 이미 다른 두 명이 접속 중입니다 —');
