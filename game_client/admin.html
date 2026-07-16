@@ -48,32 +48,30 @@
 
   <!-- ── Tabs ── -->
   <div class="adm-tabs">
-    <button class="adm-tab active" data-tab="queue" onclick="switchTab('queue')">대기 중 <span class="adm-badge" id="queueCount">0</span></button>
-    <button class="adm-tab" data-tab="history" onclick="switchTab('history')">완료된 내역</button>
+    <button class="adm-tab active" data-tab="queue" onclick="switchTab('queue')">대기 신고 <span class="adm-badge" id="queueCount">0</span></button>
+    <button class="adm-tab" data-tab="history" onclick="switchTab('history')">처리된 신고</button>
+    <button class="adm-tab" data-tab="sanctions" onclick="switchTab('sanctions')">제재 내역</button>
+    <button class="adm-tab" data-tab="appeals" onclick="switchTab('appeals')">이의 신청</button>
   </div>
 
   <!-- ── Queue Panel ── -->
   <div id="queuePanel">
     <div class="adm-filters">
-      <select class="adm-select" id="qFilterReason">
-        <option value="all">전체 사유</option>
-        <option value="abuse">욕설/비하</option>
-        <option value="harass">괴롭힘</option>
-        <option value="cheat">핵/치팅</option>
-        <option value="spam">스팸/광고</option>
-        <option value="other">기타</option>
+      <select class="adm-select" id="qFilterStatus">
+        <option value="all">전체 상태</option>
+        <option value="PENDING">대기</option>
+        <option value="MANUAL_REVIEW_REQUIRED">수동 검토 필요</option>
       </select>
       <select class="adm-select" id="qFilterType">
         <option value="all">전체 유형</option>
-        <option value="chat">💬 채팅</option>
-        <option value="voice">🎙 음성</option>
+        <option value="TEXT">💬 텍스트</option>
+        <option value="VOICE">🎙 음성</option>
       </select>
       <select class="adm-select" id="qSort">
         <option value="latest">최신순</option>
-        <option value="oldest">오래된순 (SLA 우선)</option>
-        <option value="dupCount">중복 신고 많은순</option>
+        <option value="oldest">오래된순</option>
       </select>
-      <input class="adm-input" id="qSearch" type="text" placeholder="대상 유저명 검색...">
+      <input class="adm-input" id="qSearch" type="text" placeholder="신고번호·유저 ID 검색...">
     </div>
     <div class="adm-queue-list" id="queueList"></div>
   </div>
@@ -89,19 +87,64 @@
       </select>
       <select class="adm-select" id="hFilterResult">
         <option value="all">전체 결과</option>
-        <option value="sanctioned">제재 처리</option>
-        <option value="dismissed">신고 취소</option>
+        <option value="COMPLETED">제재 처리</option>
+        <option value="DISMISSED">신고 취소</option>
       </select>
-      <input class="adm-input" id="hSearch" type="text" placeholder="유저명 또는 담당자 검색...">
+      <input class="adm-input" id="hSearch" type="text" placeholder="피신고자 ID·처리자 검색...">
     </div>
     <div class="adm-table-wrap">
       <table class="adm-table">
         <thead>
           <tr>
-            <th>처리 일시</th><th>대상 유저</th><th>사유</th><th>유형</th><th>처리 결과</th><th>담당자</th>
+            <th>처리 일시</th><th>신고번호</th><th>피신고자</th><th>신고자</th><th>처리 결과</th><th>담당자</th>
           </tr>
         </thead>
         <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Sanctions Panel ── -->
+  <div id="sanctionsPanel" style="display:none">
+    <div class="adm-filters">
+      <select class="adm-select" id="sFilterType">
+        <option value="all">전체 제재</option>
+        <option value="MUTE">채팅 금지</option>
+        <option value="BAN">계정 정지</option>
+      </select>
+      <input class="adm-input" id="sSearch" type="text" placeholder="대상 유저·AI 결과 검색...">
+    </div>
+    <div class="adm-table-wrap">
+      <table class="adm-table">
+        <thead>
+          <tr>
+            <th>제재번호</th><th>대상 유저</th><th>AI 결과</th><th>제재 종류</th><th>기간</th><th>만료일</th>
+          </tr>
+        </thead>
+        <tbody id="sanctionsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Appeals Panel ── -->
+  <div id="appealsPanel" style="display:none">
+    <div class="adm-filters">
+      <select class="adm-select" id="aFilterStatus">
+        <option value="all">전체 상태</option>
+        <option value="PENDING">대기</option>
+        <option value="APPROVED">인용</option>
+        <option value="REJECTED">기각</option>
+      </select>
+      <input class="adm-input" id="aSearch" type="text" placeholder="신청자·사유 검색...">
+    </div>
+    <div class="adm-table-wrap">
+      <table class="adm-table">
+        <thead>
+          <tr>
+            <th>신청번호</th><th>신고번호</th><th>신청자</th><th>사유</th><th>상태</th><th>신청일</th>
+          </tr>
+        </thead>
+        <tbody id="appealsBody"></tbody>
       </table>
     </div>
   </div>
