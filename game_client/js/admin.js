@@ -1,335 +1,443 @@
 /* ═══════════════════════════════════════════════════════
-   ADMIN DASHBOARD — 데이터 & 로직
-   (실제 서비스에서는 이 목데이터 대신 서버 API 응답으로 교체)
+   ADMIN DASHBOARD — DB 스키마 기반 데이터 & 로직
+   (실제 서비스에서는 서버 API 응답으로 대체 가능)
 ═══════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
 
-const REASON_LABELS = { abuse:'욕설/비하', harass:'괴롭힘', cheat:'핵/치팅', spam:'스팸/광고', other:'기타' };
-const REASON_STYLE = {
-  abuse:  'color:var(--danger); border-color:var(--danger); background:var(--danger-glow);',
-  harass: 'color:var(--danger); border-color:var(--danger); background:var(--danger-glow);',
-  cheat:  'color:#FF9F43; border-color:#FF9F43; background:rgba(255,159,67,.12);',
-  spam:   'color:var(--text-muted); border-color:var(--border); background:transparent;',
-  other:  'color:var(--text-muted); border-color:var(--border); background:transparent;',
+const REPORT_STATUS_LABELS = {
+  PENDING: '대기',
+  COMPLETED: '처리 완료',
+  MANUAL_REVIEW_REQUIRED: '수동 검토 필요',
+  DISMISSED: '신고 취소',
 };
-const SANCTION_LABELS = { warn:'경고', mute_1d:'채팅 정지 1일', mute_7d:'채팅 정지 7일', ban_perm:'계정 영구정지' };
+const SANCTION_TYPE_LABELS = {
+  MUTE: '채팅 금지',
+  BAN: '계정 정지',
+};
+const APPEAL_STATUS_LABELS = {
+  PENDING: '대기',
+  APPROVED: '인용',
+  REJECTED: '기각',
+};
 const SLA_WARN_MIN = 15, SLA_DANGER_MIN = 60;
-
 const now = Date.now();
 const MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
-/* ── 목 데이터 ── */
 let reports = [
   {
-    id:'R-2041', targetUser:'악당유저123', reporterUser:'용사_Yujin', reason:'abuse', type:'chat',
-    reportedAt: now - 6*MIN, duplicateCount:2, priorOffenses:1, status:'pending',
-    context:[
-      {user:'용사_Yujin', time:'14:02', text:'그 자리 좀 피해줄래요?'},
-      {user:'악당유저123', time:'14:02', text:'ㅋㅋ 병신아 니가 비켜', flagged:true},
-      {user:'용사_Yujin', time:'14:03', text:'말이 너무 심하네요'},
-    ],
+    id: 101,
+    created_at: now - 6 * MIN,
+    reporter_id: 'user_01',
+    reported_id: 'user_02',
+    status: 'PENDING',
+    content_type: 'TEXT',
+    content_path: '욕설/비하 발언: "병신아 니가 비켜"',
+    reviewed_at: null,
+    reviewed_by: null,
+    review_result: null,
   },
   {
-    id:'R-2042', targetUser:'헬퍼모드', reporterUser:'초보냥이', reason:'cheat', type:'chat',
-    reportedAt: now - 40*MIN, duplicateCount:5, priorOffenses:0, status:'pending',
-    context:[
-      {user:'초보냥이', time:'13:20', text:'저 사람 반응속도 실화냐'},
-      {user:'헬퍼모드', time:'13:20', text:'ㅇㅇ 매크로 씀 ㅋㅋ', flagged:true},
-    ],
+    id: 102,
+    created_at: now - 40 * MIN,
+    reporter_id: 'user_03',
+    reported_id: 'user_04',
+    status: 'MANUAL_REVIEW_REQUIRED',
+    content_type: 'TEXT',
+    content_path: '매크로 사용 의심 패턴 로그 첨부',
+    reviewed_at: null,
+    reviewed_by: null,
+    review_result: null,
   },
   {
-    id:'R-2043', targetUser:'광고업자', reporterUser:'플레이어_2831', reason:'spam', type:'chat',
-    reportedAt: now - 90*MIN, duplicateCount:8, priorOffenses:2, status:'pending',
-    context:[
-      {user:'광고업자', time:'12:10', text:'게임머니 최저가 문의 카톡 gold1004', flagged:true},
-      {user:'광고업자', time:'12:11', text:'게임머니 최저가 문의 카톡 gold1004', flagged:true},
-    ],
+    id: 103,
+    created_at: now - 90 * MIN,
+    reporter_id: 'user_05',
+    reported_id: 'user_06',
+    status: 'PENDING',
+    content_type: 'VOICE',
+    content_path: '/uploads/voice/report_103.wav',
+    reviewed_at: null,
+    reviewed_by: null,
+    review_result: null,
   },
   {
-    id:'R-2044', targetUser:'조용한스토커', reporterUser:'익명유저', reason:'harass', type:'voice',
-    reportedAt: now - 12*MIN, duplicateCount:0, priorOffenses:0, status:'pending',
-    context:[
-      {user:'익명유저', time:'14:18', text:'(음성) 그만 좀 따라다니세요'},
-      {user:'조용한스토커', time:'14:19', text:'(음성) 계속되는 욕설 및 위협 발언 — 최근 30초 녹음 증거 첨부됨', flagged:true},
-    ],
+    id: 104,
+    created_at: now - 5 * HOUR,
+    reporter_id: 'user_07',
+    reported_id: 'user_02',
+    status: 'COMPLETED',
+    content_type: 'TEXT',
+    content_path: '반복적 욕설 및 비하 발언',
+    reviewed_at: now - 4 * HOUR,
+    reviewed_by: 'CS_민지',
+    review_result: '욕설 3단계, 채팅 제한 7일',
   },
   {
-    id:'R-2045', targetUser:'분노조절장애', reporterUser:'평화주의자', reason:'other', type:'chat',
-    reportedAt: now - 3*MIN, duplicateCount:0, priorOffenses:0, status:'pending',
-    context:[
-      {user:'분노조절장애', time:'14:27', text:'이딴식으로 할거면 게임을 접어', flagged:true},
-    ],
+    id: 105,
+    created_at: now - 1 * DAY,
+    reporter_id: 'user_08',
+    reported_id: 'user_09',
+    status: 'DISMISSED',
+    content_type: 'TEXT',
+    content_path: '오해로 확인된 단순 발언',
+    reviewed_at: now - 23 * HOUR,
+    reviewed_by: 'CS_현우',
+    review_result: '허위 신고로 판단되어 취소',
   },
+];
 
-  // ── 완료된 내역 ──
+let sanctions = [
   {
-    id:'R-1998', targetUser:'욕쟁이할배', reporterUser:'용사_Yujin', reason:'abuse', type:'chat',
-    reportedAt: now - 5*HOUR, duplicateCount:3, priorOffenses:3, status:'sanctioned',
-    handledBy:'CS_민지', handledAt: now - 4*HOUR, sanction:{ type:'mute_7d', reason:'반복적 욕설 및 비하 발언, 누적 3회 위반' },
-    context:[ {user:'욕쟁이할배', time:'09:40', text:'ㅅㅂㅅㅂ 못하네 진짜', flagged:true} ],
+    id: 1,
+    created_at: now - 4 * HOUR,
+    user_id: 'user_02',
+    ai_result: '욕설 3단계',
+    type: 'MUTE',
+    duration_days: 7,
+    ended_at: now + 7 * DAY,
   },
   {
-    id:'R-1999', targetUser:'실수왕', reporterUser:'초보냥이', reason:'other', type:'chat',
-    reportedAt: now - 1*DAY, duplicateCount:0, priorOffenses:0, status:'dismissed',
-    handledBy:'CS_민지', handledAt: now - 23*HOUR, dismissReason:'단순 오해로 확인됨, 제재 사유 불충분',
-    context:[ {user:'실수왕', time:'어제', text:'앗 미안 잘못 눌렀어요'} ],
+    id: 2,
+    created_at: now - 2 * DAY,
+    user_id: 'user_04',
+    ai_result: '매크로 사용 의심',
+    type: 'BAN',
+    duration_days: 30,
+    ended_at: null,
+  },
+];
+
+let appeals = [
+  {
+    id: 1,
+    report_id: 101,
+    user_id: 'user_02',
+    reason: '허위 신고로 판단됨',
+    status: 'PENDING',
+    created_at: now - 30 * MIN,
   },
   {
-    id:'R-2001', targetUser:'매크로킹', reporterUser:'플레이어_2831', reason:'cheat', type:'chat',
-    reportedAt: now - 2*DAY, duplicateCount:6, priorOffenses:1, status:'sanctioned',
-    handledBy:'CS_현우', handledAt: now - 2*DAY + 30*MIN, sanction:{ type:'ban_perm', reason:'매크로 사용 정황 다수 신고 및 로그 확인, 영구정지' },
-    context:[ {user:'매크로킹', time:'그제', text:'(자동화 의심 패턴 로그 첨부)', flagged:true} ],
-  },
-  {
-    id:'R-2002', targetUser:'광고봇22', reporterUser:'평화주의자', reason:'spam', type:'chat',
-    reportedAt: now - 3*DAY, duplicateCount:12, priorOffenses:4, status:'sanctioned',
-    handledBy:'CS_현우', handledAt: now - 3*DAY + 10*MIN, sanction:{ type:'ban_perm', reason:'상습 광고 스팸, 누적 4회 위반으로 영구정지' },
-    context:[ {user:'광고봇22', time:'3일전', text:'대량 홍보 메시지 반복 전송', flagged:true} ],
-  },
-  {
-    id:'R-2003', targetUser:'욱하는유저', reporterUser:'용사_Yujin', reason:'harass', type:'voice',
-    reportedAt: now - 4*DAY, duplicateCount:1, priorOffenses:0, status:'sanctioned',
-    handledBy:'CS_민지', handledAt: now - 4*DAY + 20*MIN, sanction:{ type:'warn', reason:'경미한 언쟁, 1차 경고 처리' },
-    context:[ {user:'욱하는유저', time:'4일전', text:'(음성) 언성을 높이며 항의', flagged:true} ],
+    id: 2,
+    report_id: 105,
+    user_id: 'user_09',
+    reason: '신고 사유가 불충분함',
+    status: 'REJECTED',
+    created_at: now - 1 * DAY,
   },
 ];
 
 let activeTab = 'queue';
 let sanctionTargetId = null, dismissTargetId = null;
 
-/* ── 유틸 ── */
-function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function initials(name){ return name.replace(/[^가-힣a-zA-Z0-9]/g,'').slice(0,2).toUpperCase() || '??'; }
-function fmtElapsed(ts){
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function initials(name) {
+  return String(name).replace(/[^가-힣a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '??';
+}
+function fmtElapsed(ts) {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / MIN);
   if (m < 1) return '방금';
   if (m < 60) return `${m}분`;
-  const h = Math.floor(m/60);
-  if (h < 24) return `${h}시간 ${m%60}분`;
-  return `${Math.floor(h/24)}일 ${h%24}시간`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 ${m % 60}분`;
+  return `${Math.floor(h / 24)}일 ${h % 24}시간`;
 }
-function slaClass(ts){
-  const m = (Date.now()-ts)/MIN;
+function fmtDateTime(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function getReportStatusText(status) {
+  return REPORT_STATUS_LABELS[status] || status;
+}
+function getSanctionTypeLabel(type) {
+  return SANCTION_TYPE_LABELS[type] || type;
+}
+function getAppealStatusText(status) {
+  return APPEAL_STATUS_LABELS[status] || status;
+}
+function isSanctionActive(item) {
+  return !item.ended_at || new Date(item.ended_at).getTime() > Date.now();
+}
+function slaClass(ts) {
+  const m = (Date.now() - ts) / MIN;
   if (m >= SLA_DANGER_MIN) return 'danger';
   if (m >= SLA_WARN_MIN) return 'warn';
   return 'ok';
 }
-function fmtDateTime(ts){
-  const d = new Date(ts);
-  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-/* ── 통계 ── */
-function renderStats(){
-  const pending = reports.filter(r=>r.status==='pending');
-  const todayHandled = reports.filter(r=>r.status!=='pending' && (Date.now()-r.handledAt) < DAY);
-  const avgMin = todayHandled.length
-    ? Math.round(todayHandled.reduce((s,r)=> s + (r.handledAt - r.reportedAt), 0) / todayHandled.length / MIN)
+function renderStats() {
+  const pendingReports = reports.filter(r => ['PENDING', 'MANUAL_REVIEW_REQUIRED'].includes(r.status));
+  const handledToday = reports.filter(r => ['COMPLETED', 'DISMISSED'].includes(r.status) && (Date.now() - (r.reviewed_at || r.created_at)) < DAY);
+  const pendingAppeals = appeals.filter(a => a.status === 'PENDING');
+  const activeSanctions = sanctions.filter(isSanctionActive);
+  const avgMin = handledToday.length
+    ? Math.round(handledToday.reduce((sum, r) => sum + Math.max(0, (r.reviewed_at || r.created_at) - r.created_at), 0) / handledToday.length / MIN)
     : 0;
-  const slaBreach = pending.filter(r => (Date.now()-r.reportedAt)/MIN >= SLA_DANGER_MIN).length;
 
-  $('statPending').textContent = pending.length;
-  $('statPendingSub').textContent = slaBreach>0 ? `⚠ ${slaBreach}건 지연` : '지연 없음';
-  $('statHandledToday').textContent = todayHandled.length;
-  $('statAvgTime').textContent = todayHandled.length ? `${avgMin}분` : '—';
-  $('statTotalToday').textContent = pending.length + todayHandled.length;
+  $('statTotalToday').textContent = reports.filter(r => (Date.now() - r.created_at) < DAY).length;
+  $('statPending').textContent = pendingReports.length;
+  $('statPendingSub').textContent = pendingAppeals.length > 0 ? `⚠ ${pendingAppeals.length}건 이의 신청` : '이의 신청 없음';
+  $('statHandledToday').textContent = handledToday.length;
+  $('statAvgTime').textContent = handledToday.length ? `${avgMin}분` : '—';
+  $('queueCount').textContent = pendingReports.length;
+  $('queueCount').classList.toggle('zero', pendingReports.length === 0);
 }
-
-/* ── 탭 ── */
-function switchTab(tab){
+function switchTab(tab) {
   activeTab = tab;
-  document.querySelectorAll('.adm-tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  $('queuePanel').style.display = tab==='queue' ? '' : 'none';
-  $('historyPanel').style.display = tab==='history' ? '' : 'none';
+  document.querySelectorAll('.adm-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  $('queuePanel').style.display = tab === 'queue' ? '' : 'none';
+  $('historyPanel').style.display = tab === 'history' ? '' : 'none';
+  $('sanctionsPanel').style.display = tab === 'sanctions' ? '' : 'none';
+  $('appealsPanel').style.display = tab === 'appeals' ? '' : 'none';
 }
-
-/* ── 대기 큐 렌더링 ── */
-function renderQueue(){
-  let list = reports.filter(r=>r.status==='pending');
-
-  const reasonF = $('qFilterReason').value;
+function renderQueue() {
+  let list = reports.filter(r => ['PENDING', 'MANUAL_REVIEW_REQUIRED'].includes(r.status));
+  const statusF = $('qFilterStatus').value;
   const typeF = $('qFilterType').value;
   const search = $('qSearch').value.trim().toLowerCase();
-  if (reasonF !== 'all') list = list.filter(r=>r.reason===reasonF);
-  if (typeF !== 'all') list = list.filter(r=>r.type===typeF);
-  if (search) list = list.filter(r=>r.targetUser.toLowerCase().includes(search));
+
+  if (statusF !== 'all') list = list.filter(r => r.status === statusF);
+  if (typeF !== 'all') list = list.filter(r => r.content_type === typeF);
+  if (search) list = list.filter(r => [r.id, r.reporter_id, r.reported_id, r.content_path].join(' ').toLowerCase().includes(search));
 
   const sort = $('qSort').value;
-  if (sort === 'oldest') list.sort((a,b)=>a.reportedAt-b.reportedAt);
-  else if (sort === 'dupCount') list.sort((a,b)=>b.duplicateCount-a.duplicateCount);
-  else list.sort((a,b)=>b.reportedAt-a.reportedAt); // latest (default)
-
-  $('queueCount').textContent = reports.filter(r=>r.status==='pending').length;
-  $('queueCount').classList.toggle('zero', reports.filter(r=>r.status==='pending').length===0);
+  if (sort === 'oldest') list.sort((a, b) => a.created_at - b.created_at);
+  else list.sort((a, b) => b.created_at - a.created_at);
 
   const wrap = $('queueList');
-  if (!list.length){
-    wrap.innerHTML = `<div class="q-empty">조건에 맞는 대기 중인 신고가 없습니다.</div>`;
+  if (!list.length) {
+    wrap.innerHTML = '<div class="q-empty">조건에 맞는 대기 중인 신고가 없습니다.</div>';
     return;
   }
-  wrap.innerHTML = list.map(r=>{
-    const sla = slaClass(r.reportedAt);
+
+  wrap.innerHTML = list.map(r => {
+    const sla = slaClass(r.created_at);
     return `
-    <div class="q-card ${sla==='danger'?'sla-danger':''}">
+    <div class="q-card ${sla === 'danger' ? 'sla-danger' : ''}">
       <div class="q-card-top">
         <div class="q-user">
-          <div class="q-avatar">${initials(r.targetUser)}</div>
+          <div class="q-avatar">${initials(r.reported_id)}</div>
           <div>
-            <div class="q-username">${escHtml(r.targetUser)}</div>
-            <div class="q-meta">신고자 ${escHtml(r.reporterUser)} · ${r.type==='voice'?'🎙 음성':'💬 채팅'}</div>
+            <div class="q-username">신고 #${escHtml(r.id)} · ${escHtml(r.reported_id)}</div>
+            <div class="q-meta">신고자 ${escHtml(r.reporter_id)} · ${r.content_type === 'VOICE' ? '🎙 음성' : '💬 텍스트'}</div>
           </div>
         </div>
         <div class="q-badges">
-          <span class="q-reason-tag" style="${REASON_STYLE[r.reason]}">${REASON_LABELS[r.reason]}</span>
-          ${r.duplicateCount>0?`<span class="q-dup">+${r.duplicateCount}건 추가신고</span>`:''}
-          <span class="q-sla ${sla}">${fmtElapsed(r.reportedAt)} 경과</span>
+          <span class="q-reason-tag" style="color:var(--accent); border-color:var(--accent); background:var(--accent-glow);">${getReportStatusText(r.status)}</span>
+          <span class="q-sla ${sla}">${fmtElapsed(r.created_at)} 경과</span>
         </div>
       </div>
       <div class="q-context">
-        ${r.context.map(c=>`
-          <div class="q-ctx-line ${c.flagged?'flagged':''}">
-            <span class="q-ctx-name">${escHtml(c.user)}</span><span class="q-ctx-time">${c.time}</span>
-            <div class="q-ctx-text">${escHtml(c.text)}</div>
-          </div>`).join('')}
+        <div class="q-ctx-line flagged">
+          <span class="q-ctx-name">원문/경로</span>
+          <div class="q-ctx-text">${escHtml(r.content_path || '내용 없음')}</div>
+        </div>
+        <div class="q-ctx-line">
+          <span class="q-ctx-name">접수 시각</span><span class="q-ctx-time">${fmtDateTime(r.created_at)}</span>
+          <div class="q-ctx-text">${getReportStatusText(r.status)} 상태로 접수됨</div>
+        </div>
       </div>
       <div class="q-footer">
-        <div class="q-history-note ${r.priorOffenses>0?'warn':''}">${r.priorOffenses>0?`⚠ 과거 제재 이력 ${r.priorOffenses}회`:'과거 제재 이력 없음'}</div>
+        <div class="q-history-note">DB 기준: reports 테이블의 ${escHtml(r.status)} 상태</div>
         <div class="q-actions">
-          <button class="btn btn-dismiss" onclick="openDismissModal('${r.id}')">신고 취소</button>
+          <button class="btn btn-dismiss" onclick="openDismissModal('${r.id}')">수동 검토</button>
           <button class="btn btn-sanction" onclick="openSanctionModal('${r.id}')">제재 처리</button>
         </div>
       </div>
     </div>`;
   }).join('');
 }
-
-/* ── 완료 내역 렌더링 ── */
-function renderHistory(){
-  let list = reports.filter(r=>r.status!=='pending');
-
+function renderHistory() {
+  let list = reports.filter(r => ['COMPLETED', 'DISMISSED'].includes(r.status));
   const periodF = $('hFilterPeriod').value;
   const resultF = $('hFilterResult').value;
   const search = $('hSearch').value.trim().toLowerCase();
-  if (periodF !== 'all'){
-    const span = periodF==='today' ? DAY : periodF==='7d' ? 7*DAY : 30*DAY;
-    list = list.filter(r => (Date.now()-r.handledAt) < span);
-  }
-  if (resultF !== 'all') list = list.filter(r=>r.status===resultF);
-  if (search) list = list.filter(r=>r.targetUser.toLowerCase().includes(search) || r.handledBy.toLowerCase().includes(search));
 
-  list.sort((a,b)=>b.handledAt-a.handledAt);
+  if (periodF !== 'all') {
+    const span = periodF === 'today' ? DAY : periodF === '7d' ? 7 * DAY : 30 * DAY;
+    list = list.filter(r => (Date.now() - (r.reviewed_at || r.created_at)) < span);
+  }
+  if (resultF !== 'all') list = list.filter(r => r.status === resultF);
+  if (search) list = list.filter(r => [r.reported_id, r.reviewed_by, r.review_result].join(' ').toLowerCase().includes(search));
+
+  list.sort((a, b) => (b.reviewed_at || b.created_at) - (a.reviewed_at || a.created_at));
 
   const tbody = $('historyBody');
-  if (!list.length){
-    tbody.innerHTML = `<tr><td colspan="6" class="q-empty">조건에 맞는 완료 내역이 없습니다.</td></tr>`;
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="q-empty">조건에 맞는 완료 내역이 없습니다.</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map(r=>`
+
+  tbody.innerHTML = list.map(r => `
     <tr onclick="openDetailModal('${r.id}')">
-      <td>${fmtDateTime(r.handledAt)}</td>
-      <td>${escHtml(r.targetUser)}</td>
-      <td><span class="q-reason-tag" style="${REASON_STYLE[r.reason]}">${REASON_LABELS[r.reason]}</span></td>
-      <td>${r.type==='voice'?'🎙 음성':'💬 채팅'}</td>
-      <td><span class="result-tag ${r.status}">${r.status==='sanctioned'? SANCTION_LABELS[r.sanction.type] : '신고 취소'}</span></td>
-      <td>${escHtml(r.handledBy)}</td>
+      <td>${fmtDateTime(r.reviewed_at || r.created_at)}</td>
+      <td>#${escHtml(r.id)}</td>
+      <td>${escHtml(r.reported_id)}</td>
+      <td>${escHtml(r.reporter_id)}</td>
+      <td><span class="result-tag ${r.status === 'COMPLETED' ? 'sanctioned' : 'dismissed'}">${r.status === 'COMPLETED' ? '제재 처리' : '신고 취소'}</span></td>
+      <td>${escHtml(r.reviewed_by || '—')}</td>
     </tr>`).join('');
 }
+function renderSanctions() {
+  let list = [...sanctions];
+  const typeF = $('sFilterType').value;
+  const search = $('sSearch').value.trim().toLowerCase();
+  if (typeF !== 'all') list = list.filter(s => s.type === typeF);
+  if (search) list = list.filter(s => [s.user_id, s.ai_result, s.type].join(' ').toLowerCase().includes(search));
+  list.sort((a, b) => b.created_at - a.created_at);
 
-/* ── 제재 처리 모달 ── */
-function openSanctionModal(id){
-  sanctionTargetId = id;
-  const r = reports.find(x=>x.id===id);
-  $('sanctionTargetName').textContent = r.targetUser;
+  const tbody = $('sanctionsBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="q-empty">조건에 맞는 제재 내역이 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(s => `
+    <tr>
+      <td>#${escHtml(s.id)}</td>
+      <td>${escHtml(s.user_id)}</td>
+      <td>${escHtml(s.ai_result)}</td>
+      <td>${getSanctionTypeLabel(s.type)}${s.duration_days ? ` · ${s.duration_days}일` : ''}</td>
+      <td>${s.duration_days ? `${s.duration_days}일` : '—'}</td>
+      <td>${s.ended_at ? fmtDateTime(s.ended_at) : '영구'}</td>
+    </tr>`).join('');
+}
+function renderAppeals() {
+  let list = [...appeals];
+  const statusF = $('aFilterStatus').value;
+  const search = $('aSearch').value.trim().toLowerCase();
+  if (statusF !== 'all') list = list.filter(a => a.status === statusF);
+  if (search) list = list.filter(a => [a.user_id, a.reason, a.report_id].join(' ').toLowerCase().includes(search));
+  list.sort((a, b) => b.created_at - a.created_at);
+
+  const tbody = $('appealsBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="q-empty">조건에 맞는 이의 신청이 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(a => `
+    <tr>
+      <td>#${escHtml(a.id)}</td>
+      <td>#${escHtml(a.report_id)}</td>
+      <td>${escHtml(a.user_id)}</td>
+      <td>${escHtml(a.reason)}</td>
+      <td>${getAppealStatusText(a.status)}</td>
+      <td>${fmtDateTime(a.created_at)}</td>
+    </tr>`).join('');
+}
+function openSanctionModal(id) {
+  sanctionTargetId = Number(id);
+  const r = reports.find(x => x.id === sanctionTargetId);
+  $('sanctionTargetName').textContent = r ? r.reported_id : '';
   $('sanctionReasonText').value = '';
-  $('sanctionType').value = 'warn';
+  $('sanctionType').value = 'MUTE';
   $('sanctionOverlay').classList.add('open');
 }
-function closeSanctionModal(){ $('sanctionOverlay').classList.remove('open'); sanctionTargetId=null; }
-function confirmSanction(){
-  const r = reports.find(x=>x.id===sanctionTargetId);
+function closeSanctionModal() {
+  $('sanctionOverlay').classList.remove('open');
+  sanctionTargetId = null;
+}
+function confirmSanction() {
+  const r = reports.find(x => x.id === sanctionTargetId);
   if (!r) return;
   const type = $('sanctionType').value;
   const reasonText = $('sanctionReasonText').value.trim();
-  r.status = 'sanctioned';
-  r.handledBy = CURRENT_ADMIN;
-  r.handledAt = Date.now();
-  r.sanction = { type, reason: reasonText || `${SANCTION_LABELS[type]} 처리` };
+  sanctions.unshift({
+    id: sanctions.length ? sanctions[0].id + 1 : 1,
+    created_at: Date.now(),
+    user_id: r.reported_id,
+    ai_result: reasonText || `${getSanctionTypeLabel(type)} 처리`,
+    type,
+    duration_days: type === 'BAN' ? 30 : 7,
+    ended_at: type === 'BAN' ? null : Date.now() + 7 * DAY,
+  });
+  r.status = 'COMPLETED';
+  r.reviewed_by = CURRENT_ADMIN;
+  r.reviewed_at = Date.now();
+  r.review_result = reasonText || `${getSanctionTypeLabel(type)} 처리`;
   closeSanctionModal();
-  showToast(`${r.targetUser}님에게 "${SANCTION_LABELS[type]}" 처리를 완료했습니다.`);
+  showToast(`${r.reported_id}님에게 "${getSanctionTypeLabel(type)}" 처리를 완료했습니다.`);
   renderAll();
 }
-
-/* ── 신고 취소 모달 ── */
-function openDismissModal(id){
-  dismissTargetId = id;
-  const r = reports.find(x=>x.id===id);
-  $('dismissTargetName').textContent = r.targetUser;
+function openDismissModal(id) {
+  dismissTargetId = Number(id);
+  const r = reports.find(x => x.id === dismissTargetId);
+  $('dismissTargetName').textContent = r ? r.reported_id : '';
   $('dismissReasonText').value = '';
   $('dismissOverlay').classList.add('open');
 }
-function closeDismissModal(){ $('dismissOverlay').classList.remove('open'); dismissTargetId=null; }
-function confirmDismiss(){
-  const r = reports.find(x=>x.id===dismissTargetId);
+function closeDismissModal() {
+  $('dismissOverlay').classList.remove('open');
+  dismissTargetId = null;
+}
+function confirmDismiss() {
+  const r = reports.find(x => x.id === dismissTargetId);
   if (!r) return;
   const reasonText = $('dismissReasonText').value.trim();
-  if (!reasonText){ $('dismissReasonText').focus(); return; }
-  r.status = 'dismissed';
-  r.handledBy = CURRENT_ADMIN;
-  r.handledAt = Date.now();
-  r.dismissReason = reasonText;
+  if (!reasonText) {
+    $('dismissReasonText').focus();
+    return;
+  }
+  r.status = 'DISMISSED';
+  r.reviewed_by = CURRENT_ADMIN;
+  r.reviewed_at = Date.now();
+  r.review_result = reasonText;
   closeDismissModal();
-  showToast(`${r.targetUser}님에 대한 신고를 취소 처리했습니다.`);
+  showToast(`${r.reported_id}님에 대한 신고를 취소 처리했습니다.`);
   renderAll();
 }
-
-/* ── 상세 보기 모달 (완료 내역) ── */
-function openDetailModal(id){
-  const r = reports.find(x=>x.id===id);
-  const resultLine = r.status==='sanctioned'
-    ? `<span class="result-tag sanctioned">${SANCTION_LABELS[r.sanction.type]}</span>`
-    : `<span class="result-tag dismissed">신고 취소</span>`;
+function openDetailModal(id) {
+  const r = reports.find(x => x.id === Number(id));
+  if (!r) return;
+  const resultLine = r.status === 'COMPLETED'
+    ? `<span class="result-tag sanctioned">${escHtml(r.review_result || '처리 완료')}</span>`
+    : `<span class="result-tag dismissed">${escHtml(r.review_result || '신고 취소')}</span>`;
   $('detailBody').innerHTML = `
     <dl class="detail-grid">
-      <dt>대상 유저</dt><dd>${escHtml(r.targetUser)}</dd>
-      <dt>신고자</dt><dd>${escHtml(r.reporterUser)}</dd>
-      <dt>신고 사유</dt><dd>${REASON_LABELS[r.reason]} (${r.type==='voice'?'음성':'채팅'})</dd>
-      <dt>접수 시각</dt><dd>${fmtDateTime(r.reportedAt)}</dd>
+      <dt>신고번호</dt><dd>#${escHtml(r.id)}</dd>
+      <dt>신고자</dt><dd>${escHtml(r.reporter_id)}</dd>
+      <dt>피신고자</dt><dd>${escHtml(r.reported_id)}</dd>
+      <dt>유형</dt><dd>${r.content_type === 'VOICE' ? '음성' : '텍스트'}</dd>
+      <dt>접수 시각</dt><dd>${fmtDateTime(r.created_at)}</dd>
       <dt>처리 결과</dt><dd>${resultLine}</dd>
-      <dt>처리자</dt><dd>${escHtml(r.handledBy)}</dd>
-      <dt>처리 시각</dt><dd>${fmtDateTime(r.handledAt)}</dd>
-      <dt>처리 사유</dt><dd>${escHtml(r.status==='sanctioned' ? r.sanction.reason : r.dismissReason)}</dd>
-    </dl>
-    <div class="q-context">
-      ${r.context.map(c=>`
-        <div class="q-ctx-line ${c.flagged?'flagged':''}">
-          <span class="q-ctx-name">${escHtml(c.user)}</span><span class="q-ctx-time">${c.time}</span>
-          <div class="q-ctx-text">${escHtml(c.text)}</div>
-        </div>`).join('')}
-    </div>`;
+      <dt>처리자</dt><dd>${escHtml(r.reviewed_by || '—')}</dd>
+      <dt>처리 시각</dt><dd>${fmtDateTime(r.reviewed_at || r.created_at)}</dd>
+      <dt>원문/경로</dt><dd>${escHtml(r.content_path)}</dd>
+    </dl>`;
   $('detailOverlay').classList.add('open');
 }
-function closeDetailModal(){ $('detailOverlay').classList.remove('open'); }
-
-/* ── 토스트 ── */
-function showToast(msg){
+function closeDetailModal() {
+  $('detailOverlay').classList.remove('open');
+}
+function showToast(msg) {
   $('toastMsg').textContent = msg;
   $('toast').classList.add('show');
-  setTimeout(()=> $('toast').classList.remove('show'), 3000);
+  setTimeout(() => $('toast').classList.remove('show'), 3000);
 }
-
-/* ── 전체 렌더 ── */
-function renderAll(){ renderStats(); renderQueue(); renderHistory(); }
-
+function renderAll() {
+  renderStats();
+  renderQueue();
+  renderHistory();
+  renderSanctions();
+  renderAppeals();
+}
 const CURRENT_ADMIN = 'CS_민지';
-
 document.addEventListener('DOMContentLoaded', () => {
   $('adminName').textContent = CURRENT_ADMIN;
   switchTab('queue');
   renderAll();
-  ['qFilterReason','qFilterType','qSort'].forEach(id => $(id).addEventListener('change', renderQueue));
+  ['qFilterStatus', 'qFilterType', 'qSort'].forEach(id => $(id).addEventListener('change', renderQueue));
   $('qSearch').addEventListener('input', renderQueue);
-  ['hFilterPeriod','hFilterResult'].forEach(id => $(id).addEventListener('change', renderHistory));
+  ['hFilterPeriod', 'hFilterResult'].forEach(id => $(id).addEventListener('change', renderHistory));
   $('hSearch').addEventListener('input', renderHistory);
-  setInterval(()=>{ renderStats(); renderQueue(); }, 30000); // SLA 경과시간 자동 갱신
+  $('sFilterType').addEventListener('change', renderSanctions);
+  $('sSearch').addEventListener('input', renderSanctions);
+  $('aFilterStatus').addEventListener('change', renderAppeals);
+  $('aSearch').addEventListener('input', renderAppeals);
+  setInterval(() => {
+    renderStats();
+    renderQueue();
+  }, 30000);
 });

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 대시보드</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0f1c2f;
+      --panel-2: #13263d;
+      --border: #23374d;
+      --text: #f3f6ff;
+      --muted: #7d8aa3;
+      --accent: #6c63ff;
+      --accent-2: #22c55e;
+      --danger: #ff5b70;
+      --warning: #ffb020;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", Pretendard, sans-serif; background: linear-gradient(135deg, #050b16 0%, #0b172b 100%); color: var(--text); min-height: 100vh; }
+    .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card { width: min(420px, 100%); border: 1px solid var(--border); border-radius: 18px; background: rgba(15, 28, 47, 0.96); padding: 28px; box-shadow: 0 20px 45px rgba(0,0,0,0.3); }
+    .login-card h1 { margin: 0 0 8px; font-size: 24px; }
+    .login-card p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+    .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .login-field label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .login-field input { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+    .login-btn { width: 100%; border: 0; border-radius: 10px; padding: 12px 14px; margin-top: 8px; cursor: pointer; background: linear-gradient(135deg, var(--accent), #8b7bff); color: white; font-weight: 700; }
+    .login-msg { min-height: 16px; margin-top: 10px; font-size: 13px; color: var(--danger); }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; display: none; }
+    .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(15, 28, 47, 0.95); box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+    .brand { display: flex; flex-direction: column; gap: 4px; }
+    .brand .title { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+    .brand .sub { color: var(--muted); font-size: 12px; }
+    .admin-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; margin-bottom: 0; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-height: 92px; display: flex; flex-direction: column; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 10px 22px rgba(0,0,0,0.16); }
+    .card .label { color: var(--muted); font-size: 11px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .card .value { font-size: 24px; font-weight: 800; line-height: 1; }
+    .card .value.danger { color: var(--danger); }
+    .card .value.success { color: var(--accent-2); }
+    .card .value.warn { color: var(--warning); }
+    .panel { margin-top: 0; border: 1px solid var(--border); border-radius: 16px; background: rgba(15, 28, 47, 0.95); overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.22); }
+    .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); padding: 12px 16px 0; }
+    .tab { border: 0; padding: 12px 16px; border-radius: 10px 10px 0 0; cursor: pointer; background: transparent; color: var(--muted); font-weight: 700; font-size: 15px; }
+    .tab.active { background: var(--panel-2); color: var(--text); }
+    .tab-content { padding: 16px; display: none; min-height: 420px; }
+    .tab-content.active { display: block; }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .filters select, .filters input, .modal-card select, .modal-card textarea { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 9px 11px; border-radius: 8px; min-width: 200px; font-size: 13px; }
+    .modal-card select { width: 100%; }
+    .modal-card textarea { width: 100%; min-height: 90px; resize: vertical; margin-top: 10px; }
+    .field-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .field-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+    th { background: rgba(255,255,255,0.03); color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid transparent; }
+    .badge.pending { background: rgba(255,176,32,.16); color: var(--warning); border-color: rgba(255,176,32,.35); }
+    .badge.review { background: rgba(255,176,32,.16); color: var(--warning); border-color: rgba(255,176,32,.35); }
+    .badge.done { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
+    .badge.dismiss { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
+    .badge.mute { background: rgba(108,99,255,.16); color: #b9b3ff; border-color: rgba(108,99,255,.25); }
+    .badge.ban { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
+    .badge.approve { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
+    .badge.reject { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
+    .status-btn { appearance: none; font: inherit; cursor: pointer; border: 0; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .status-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .toast { position: fixed; top: 18px; right: 18px; min-width: 320px; max-width: 360px; border: 1px solid var(--border); border-left: 4px solid var(--warning); background: rgba(15, 28, 47, 0.98); color: var(--text); padding: 12px 14px; border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.25); display: none; z-index: 50; }
+    .toast .title { font-weight: 800; margin-bottom: 4px; }
+    .toast .msg { font-size: 13px; color: var(--muted); margin-bottom: 8px; line-height: 1.4; }
+    .toast .actions { display: flex; gap: 8px; }
+    .toast .actions button { border: 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+    .toast .actions .review { background: var(--warning); color: #111; }
+    .toast .actions .dismiss { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .toast.detail-toast { border-left-color: var(--accent); min-width: 340px; max-width: 380px; }
+    .toast .detail-box { font-size: 13px; color: var(--text); margin-bottom: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); padding: 10px; line-height: 1.5; white-space: pre-wrap; max-height: 240px; overflow: auto; }
+    .toast .detail-row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); margin-bottom: 6px; font-size: 12px; }
+    .toast .detail-row strong { color: var(--text); }
+    .muted { color: var(--muted); }
+    @media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .header { flex-direction: column; align-items: flex-start; } }
+  </style>
+</head>
+<body>
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <h1>관리자 로그인</h1>
+      <p>대시보드에 접근하려면 관리자 계정으로 로그인하세요.</p>
+      <div class="login-field"><label for="loginId">아이디</label><input id="loginId" type="text" placeholder="admin01" /></div>
+      <div class="login-field"><label for="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="admin1234" /></div>
+      <button class="login-btn" id="loginBtn">로그인</button>
+      <div class="login-msg" id="loginMsg"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" style="display:none;">
+    <div class="title">새 신고 접수</div>
+    <div class="msg" id="toastMsg"></div>
+    <div class="actions"><button class="review" onclick="openReviewModal()">검토하기</button><button class="dismiss" onclick="hideToast()">닫기</button></div>
+  </div>
+  <div id="detailToast" class="toast detail-toast" style="display:none;">
+    <div class="title" id="detailToastTitle">처리 결과 상세</div>
+    <div class="msg" id="detailToastMeta"></div>
+    <div class="detail-box" id="detailToastBody"></div>
+    <div class="actions"><button class="dismiss" onclick="hideDetailToast()">닫기</button></div>
+  </div>
+  <div class="wrap" id="dashboardWrap">
+    <div class="header"><div class="brand"><div class="title">관리자 대시보드</div><div class="sub">유저 · 신고 내역 · 제재 내역 · 이의 신청</div></div><div class="admin-pill">관리자: admin01</div></div>
+    <div class="panel">
+      <div class="tabs"><button class="tab active" data-tab="reports">신고 내역</button><button class="tab" data-tab="sanctions">제재 내역</button><button class="tab" data-tab="appeals">이의 신청</button></div>
+      <div class="tab-content active" id="reports"><div class="filters"><select id="reportStatusFilter"><option value="all">전체 상태</option><option value="PENDING">대기</option><option value="MANUAL_REVIEW_REQUIRED">수동 검토 필요</option><option value="COMPLETED">처리 완료</option><option value="DISMISSED">신고 취소</option></select><input id="reportSearch" type="text" placeholder="신고자/피신고자 ID 검색" /></div><table><thead><tr><th>신고번호</th><th>신고 일시</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead><tbody id="reportBody"></tbody></table></div>
+      <div class="tab-content" id="sanctions"><div class="filters"><select id="sanctionTypeFilter"><option value="all">전체 제재</option><option value="MUTE">채팅 금지</option><option value="BAN">계정 정지</option></select><input id="sanctionSearch" type="text" placeholder="대상자 ID 검색" /></div><table><thead><tr><th>제재번호</th><th>제재 일시</th><th>대상자 ID</th><th>AI 추론 결과</th><th>제재된 텍스트 원문</th><th>제재 종류</th><th>기간</th></tr></thead><tbody id="sanctionBody"></tbody></table></div>
+      <div class="tab-content" id="appeals"><div class="filters"><select id="appealStatusFilter"><option value="all">전체 상태</option><option value="PENDING">대기</option><option value="APPROVED">인용</option><option value="REJECTED">기각</option></select><input id="appealSearch" type="text" placeholder="신청자 ID 검색" /></div><table><thead><tr><th>신청번호</th><th>신고번호</th><th>신청자 ID</th><th>사유</th><th>상태</th></tr></thead><tbody id="appealBody"></tbody></table></div>
+    </div>
+    <div class="grid"><div class="card"><div class="label">오늘 접수</div><div class="value" id="statToday">0</div></div><div class="card"><div class="label">대기 중</div><div class="value danger" id="statPending">0</div></div><div class="card"><div class="label">처리 완료</div><div class="value success" id="statDone">0</div></div><div class="card"><div class="label">활성 제재</div><div class="value warn" id="statSanction">0</div></div></div>
+  </div>
+  <script>
+    const reports = [
+      { id: 101, created_at: '2026-07-16 14:10', reporter_id: 'user_01', reported_id: 'user_02', status: 'PENDING', result: '대기', content: '욕설/비하 발언: "병신아 니가 비켜"' },
+      { id: 102, created_at: '2026-07-16 12:40', reporter_id: 'user_03', reported_id: 'user_04', status: 'MANUAL_REVIEW_REQUIRED', result: '수동 검토 필요', content: '매크로 사용 의심 패턴 로그 첨부' },
+      { id: 103, created_at: '2026-07-16 09:20', reporter_id: 'user_05', reported_id: 'user_06', status: 'COMPLETED', result: '제재 처리 완료', content: '반복적 욕설 및 비하 발언' },
+      { id: 104, created_at: '2026-07-15 22:10', reporter_id: 'user_07', reported_id: 'user_02', status: 'DISMISSED', result: '신고 취소', content: '오해로 확인된 단순 발언' }
+    ];
+    const sanctions = [
+      { id: 1, created_at: '2026-07-16 10:00', user_id: 'user_02', ai_result: '욕설 3단계', type: 'MUTE', duration_days: 7, original_text: '병신아 니가 비켜' },
+      { id: 2, created_at: '2026-07-15 18:05', user_id: 'user_04', ai_result: '매크로 사용 의심', type: 'BAN', duration_days: 30, original_text: '매크로 쓰고 경기 방해하는 행동 계속함' }
+    ];
+    const appeals = [
+      { id: 1, report_id: 101, user_id: 'user_02', reason: '허위 신고로 판단됨', status: 'PENDING' },
+      { id: 2, report_id: 104, user_id: 'user_07', reason: '신고 사유가 불충분함', status: 'REJECTED' }
+    ];
+    function escapeHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function hideDetailToast() { document.getElementById('detailToast').style.display = 'none'; }
+    function showReportDetailToast(reportId) {
+      const report = reports.find(item => item.id === reportId);
+      if (!report) return;
+      const statusText = report.status === 'PENDING' ? '대기' : report.status === 'MANUAL_REVIEW_REQUIRED' ? '수동 검토 필요' : report.status === 'COMPLETED' ? '제재 처리 완료' : '신고 취소';
+      const reviewText = report.review_reason || '미등록';
+      document.getElementById('detailToastTitle').textContent = `신고 내역 #${report.id}`;
+      document.getElementById('detailToastMeta').textContent = `${report.reporter_id} → ${report.reported_id}`;
+      document.getElementById('detailToastBody').innerHTML = `<div class="detail-row"><span>상태</span><strong>${escapeHtml(statusText)}</strong></div><div class="detail-row"><span>신고 일시</span><strong>${escapeHtml(report.created_at)}</strong></div><div class="detail-row"><span>처리 사유</span><strong>${escapeHtml(reviewText)}</strong></div><div style="margin-top:8px;color:#7d8aa3;">신고 내용</div><div style="margin-top:4px;">${escapeHtml(report.content || '신고 내용이 없습니다.')}</div>`;
+      document.getElementById('detailToast').style.display = 'block';
+    }
+    function renderReports() { const status = document.getElementById('reportStatusFilter').value; const query = document.getElementById('reportSearch').value.trim().toLowerCase(); const rows = reports.filter(r => (status === 'all' || r.status === status) && (!query || `${r.reporter_id} ${r.reported_id}`.includes(query))); document.getElementById('reportBody').innerHTML = rows.map(r => { const statusClass = r.status === 'PENDING' ? 'pending' : r.status === 'MANUAL_REVIEW_REQUIRED' ? 'review' : r.status === 'COMPLETED' ? 'done' : 'dismiss'; return `<tr><td>#${r.id}</td><td>${r.created_at}</td><td>${r.reporter_id}</td><td>${r.reported_id}</td><td><button class="status-btn badge ${statusClass}" type="button" onclick="showReportDetailToast(${r.id})">${r.result}</button></td></tr>`; }).join(''); }
+    function renderSanctions() { const type = document.getElementById('sanctionTypeFilter').value; const query = document.getElementById('sanctionSearch').value.trim().toLowerCase(); const rows = sanctions.filter(s => (type === 'all' || s.type === type) && (!query || s.user_id.includes(query))); document.getElementById('sanctionBody').innerHTML = rows.map(s => `<tr><td>#${s.id}</td><td>${s.created_at}</td><td>${s.user_id}</td><td>${s.ai_result}</td><td style="max-width:280px; white-space:pre-wrap; color:#f3d7a3;">${s.original_text || '원문 없음'}</td><td><span class="badge ${s.type === 'MUTE' ? 'mute' : 'ban'}">${s.type === 'MUTE' ? '채팅 금지' : '계정 정지'}</span></td><td>${s.duration_days}일</td></tr>`).join(''); }
+    function renderAppeals() { const status = document.getElementById('appealStatusFilter').value; const query = document.getElementById('appealSearch').value.trim().toLowerCase(); const rows = appeals.filter(a => (status === 'all' || a.status === status) && (!query || a.user_id.includes(query))); document.getElementById('appealBody').innerHTML = rows.map(a => `<tr><td>#${a.id}</td><td>#${a.report_id}</td><td>${a.user_id}</td><td>${a.reason}</td><td><span class="badge ${a.status === 'APPROVED' ? 'approve' : a.status === 'REJECTED' ? 'reject' : 'pending'}">${a.status === 'APPROVED' ? '인용' : a.status === 'REJECTED' ? '기각' : '대기'}</span></td></tr>`).join(''); }
+    function updateSummary() { document.getElementById('statToday').textContent = reports.length; document.getElementById('statPending').textContent = reports.filter(r => r.status === 'PENDING' || r.status === 'MANUAL_REVIEW_REQUIRED').length; document.getElementById('statDone').textContent = reports.filter(r => r.status === 'COMPLETED' || r.status === 'DISMISSED').length; document.getElementById('statSanction').textContent = sanctions.length; }
+    document.getElementById('loginBtn').addEventListener('click', () => { const id = document.getElementById('loginId').value.trim(); const pw = document.getElementById('loginPw').value.trim(); const msg = document.getElementById('loginMsg'); if (id === 'admin01' && pw === 'admin1234') { msg.textContent = ''; document.getElementById('loginScreen').style.display = 'none'; document.getElementById('dashboardWrap').style.display = 'block'; } else { msg.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.'; } });
+    document.querySelectorAll('.tab').forEach(tab => { tab.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); tab.classList.add('active'); document.getElementById(tab.dataset.tab).classList.add('active'); }); });
+    ['reportStatusFilter', 'reportSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderReports)); ['reportStatusFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderReports)); ['sanctionTypeFilter', 'sanctionSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderSanctions)); ['sanctionTypeFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderSanctions)); ['appealStatusFilter', 'appealSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderAppeals)); ['appealStatusFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderAppeals)); updateSummary(); renderReports(); renderSanctions(); renderAppeals();
+  </script>
+</body>
+</html>
