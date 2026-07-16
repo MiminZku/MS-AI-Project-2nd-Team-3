@@ -22,6 +22,7 @@ class Report(Base):
     reported_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"))
     status = Column(String(50), default="PENDING")
     content_type = Column(String(20))
+    content_text = Column(Text)
     content_path = Column(Text)
 
 class Sanction(Base):
