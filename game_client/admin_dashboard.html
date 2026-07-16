@@ -1,0 +1,111 @@
+<!Doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>게임 CS 운영자 대시보드</title>
+    <link rel="stylesheet" href="./admin_dashboard.css" />
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <form class="login-card" id="loginForm">
+        <div class="logo">CS</div>
+        <p class="eyebrow">Operator Console</p>
+        <h1>운영자 로그인</h1>
+        <p class="muted">게임 채팅 신고 검토와 제재 처리를 위한 관리자 화면입니다.</p>
+
+        <label>
+          <span>운영자 ID</span>
+          <input name="adminId" value="admin01" autocomplete="username" required />
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input name="password" type="password" value="admin1234" autocomplete="current-password" required />
+        </label>
+
+        <p class="login-error" id="loginError" aria-live="polite"></p>
+        <button class="primary" type="submit">로그인</button>
+        <small>시연 계정: admin01 / admin1234</small>
+      </form>
+    </section>
+
+    <main class="dashboard" id="dashboard" hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="logo">CS</div>
+          <div>
+            <strong>GameGuard Desk</strong>
+            <span>신고 제재 운영 콘솔</span>
+          </div>
+        </div>
+
+        <nav>
+          <button class="active" type="button" data-filter="all">신고 큐</button>
+          <button type="button" data-filter="pending">미처리 신고</button>
+          <button type="button" data-filter="high">고위험 신고</button>
+          <button type="button" data-filter="completed">처리 완료</button>
+        </nav>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Real-time Moderation</p>
+            <h1>운영자 대시보드</h1>
+          </div>
+          <div class="operator">담당자 <strong>관리자A</strong></div>
+        </header>
+
+        <section class="summary-grid" aria-label="신고 현황 요약">
+          <article><span>오늘 신규 신고</span><strong id="todayCount">0</strong></article>
+          <article><span>미처리 신고</span><strong id="pendingCount">0</strong></article>
+          <article><span>고위험 신고</span><strong id="highRiskCount">0</strong></article>
+          <article><span>평균 처리 시간</span><strong id="avgTime">0분</strong></article>
+          <article><span>제재율</span><strong id="sanctionRate">0%</strong></article>
+        </section>
+
+        <section class="work-area">
+          <section class="queue-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Report Queue</p>
+                <h2>신고 큐</h2>
+              </div>
+              <div class="filters">
+                <select id="reasonFilter" aria-label="신고 사유 필터">
+                  <option value="all">전체 사유</option>
+                  <option value="욕설">욕설</option>
+                  <option value="스팸">스팸</option>
+                  <option value="어뷰징">어뷰징</option>
+                </select>
+                <input id="searchInput" type="search" placeholder="플레이어, 신고 ID 검색" />
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>신고 ID</th>
+                    <th>신고 대상 플레이어</th>
+                    <th>신고 사유</th>
+                    <th>게임/모드</th>
+                    <th>AI 위험도</th>
+                    <th>신고 횟수</th>
+                    <th>상태</th>
+                    <th>담당자</th>
+                  </tr>
+                </thead>
+                <tbody id="reportRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="detail-panel" id="detailPanel" aria-label="신고 상세"></aside>
+        </section>
+      </section>
+    </main>
+
+    <script src="./js/admin_dashboard.js"></script>
+  </body>
+</html>
