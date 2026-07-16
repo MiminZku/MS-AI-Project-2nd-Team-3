@@ -1,12 +1,16 @@
 name: daily-report
 
-on:  
+on:
   schedule:
-    - cron: '0 9 16,20,21,22,23,24 7 *'   # 프로젝트 다음날 + 발표일(24) 오후 6시(KST) = UTC 09:00
+    - cron: '40 8 16,20,21,22,23,24 7 *'   # 프로젝트 일자 + 발표일(24) 오후 5시 40분(KST) = UTC 08:40
   workflow_dispatch: {}   # 수동 전용: Actions 탭 → daily-report → Run workflow 버튼으로 실행
 
 permissions:
   contents: write           # 리포트 파일을 레포에 커밋하기 위해 필요
+
+concurrency:
+  group: daily-report-${{ github.ref }}
+  cancel-in-progress: false   # 겹치면 취소 말고 대기 → 앞 실행이 push 끝낸 뒤 순서대로 실행
 
 jobs:
   report:
