@@ -36,6 +36,11 @@ function submitNickname() {
   $id('playerName').textContent = nickname;
   $id('playerAvatar').textContent = nickname.slice(0, 2);
 
+  // "플레이어 1" 자리(HUD/배너/결과화면)를 전부 내 닉네임으로 교체 — 모드와 무관하게 나는 항상 P1
+  $id('p1Label').textContent = nickname;
+  $id('p1BannerName').textContent = nickname;
+  $id('goP1Name').textContent = `🎮 ${nickname}`;
+
   $id('nicknameOverlay').classList.remove('show');
   // 모드 선택 화면은 이미 그 아래 깔려 있으므로 별도 표시 처리 불필요
 }
