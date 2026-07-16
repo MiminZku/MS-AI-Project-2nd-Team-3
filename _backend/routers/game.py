@@ -8,7 +8,7 @@ import json
 from services.game_state import manager
 from services.llm_logic import analyze_chat
 from database import SessionLocal
-from models import Report, Sanction
+from models import Report, Sanction, User
 import re
 
 router = APIRouter()
@@ -23,10 +23,39 @@ class ReportRequest(BaseModel):
     content_text: str = ""
     content_path: str = ""
 
+class LoginRequest(BaseModel):
+    user_id: str
+
+@router.post("/api/login")
+async def handle_login(req: LoginRequest):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == req.user_id).first()
+        if not user:
+            user = User(id=req.user_id, is_muted=False)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        return {"status": "ok", "user_id": user.id, "is_muted": user.is_muted}
+    except Exception as e:
+        print(f"Login Error: {e}")
+        return Response(content="error", status_code=500)
+    finally:
+        db.close()
+
 @router.post("/api/report")
 async def handle_report(req: ReportRequest):
     db = SessionLocal()
     try:
+        # 안전장치: DB에 유저가 없을 경우 강제 생성 (외래키 에러 방지)
+        for uid in [req.reporter_id, req.target_user_id]:
+            user = db.query(User).filter(User.id == uid).first()
+            if not user:
+                new_user = User(id=uid)
+                db.add(new_user)
+        db.commit()
+
         new_report = Report(
             reporter_id=req.reporter_id,
             reported_id=req.target_user_id,
