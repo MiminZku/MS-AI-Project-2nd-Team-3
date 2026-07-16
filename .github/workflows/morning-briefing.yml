@@ -2,7 +2,9 @@ name: morning-briefing
 
 on:
   schedule:
-    - cron: '0 0 16,20,21,22,23,24 7 *'   # 프로젝트 다음날 + 발표일(24) 아침 9시(KST)
+    # 08:20 KST 목표(=전날 23:20 UTC). GitHub 예약 지연을 감안해 9시보다 일찍 당김.
+    # KST 아침 16,20,21,22,23,24 → 전날 UTC 15,19,20,21,22,23
+    - cron: '20 23 15,19,20,21,22,23 7 *'
   workflow_dispatch: {}    # Actions 탭에서 수동 재실행 가능
 
 permissions:

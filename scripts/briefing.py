@@ -99,7 +99,18 @@ def call_claude(system: str, user: str) -> str:
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-    return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+    return normalize_breaks(text)
+
+
+def normalize_breaks(text: str) -> str:
+    """모델이 줄바꿈을 실제 개행 대신 리터럴 '\\n'(역슬래시+n)으로 쓰는 경우를
+    실제 개행으로 되돌린다. Teams Adaptive Card는 실제 개행만 줄바꿈으로 렌더한다."""
+    return (
+        text.replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\\r", "\n")
+    )
 
 
 def post_teams(title: str, body_text: str) -> None:
@@ -130,7 +141,8 @@ def post_teams(title: str, body_text: str) -> None:
 
 COMMON_SYSTEM = (
     "너는 6일짜리 6인 RAG 팀 프로젝트의 PM 보조다. Microsoft Teams 채팅에 올라갈 브리핑을 쓴다. "
-    "출력 규칙: Adaptive Card TextBlock에 표시되므로 마크다운은 **굵게**, - 불릿, 줄바꿈(\\n\\n)만 사용. "
+    "출력 규칙: Adaptive Card TextBlock에 표시되므로 마크다운은 **굵게**, - 불릿, 실제 줄바꿈만 사용. "
+    "줄을 바꿀 때는 실제로 엔터를 눌러 개행하고, '\\n' 같은 문자를 글자로 쓰지 마라. 문단 사이는 빈 줄 하나로 구분한다. "
     "헤더(#), 표, 코드블록 금지. 한국어로, 간결하게, 사실에 근거해서만 쓴다. "
     "ai-log는 제출한 사람 것만 반영하고, 제출하지 않은 사람을 지적하거나 나무라지 않는다."
 )
