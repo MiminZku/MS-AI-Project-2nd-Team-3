@@ -1,8 +1,11 @@
 /* ═══════════════════════════════════════════════════════
    ADMIN DASHBOARD — 데이터 & 로직
-   (실제 서비스에서는 이 목데이터 대신 서버 API 응답으로 교체)
+   (대기 큐는 웹 백엔드 API 실데이터, 완료 내역은 아직 DB 미연동이라 목데이터 유지)
 ═══════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
+
+// 웹 백엔드(_backend/webbackend.py) 주소 — 로컬 데모용
+const API_BASE = 'http://localhost:8001';
 
 const REASON_LABELS = { abuse:'욕설/비하', harass:'괴롭힘', cheat:'핵/치팅', spam:'스팸/광고', other:'기타' };
 const REASON_STYLE = {
@@ -18,50 +21,8 @@ const SLA_WARN_MIN = 15, SLA_DANGER_MIN = 60;
 const now = Date.now();
 const MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
-/* ── 목 데이터 ── */
-let reports = [
-  {
-    id:'R-2041', targetUser:'악당유저123', reporterUser:'용사_Yujin', reason:'abuse', type:'chat',
-    reportedAt: now - 6*MIN, duplicateCount:2, priorOffenses:1, status:'pending',
-    context:[
-      {user:'용사_Yujin', time:'14:02', text:'그 자리 좀 피해줄래요?'},
-      {user:'악당유저123', time:'14:02', text:'ㅋㅋ 병신아 니가 비켜', flagged:true},
-      {user:'용사_Yujin', time:'14:03', text:'말이 너무 심하네요'},
-    ],
-  },
-  {
-    id:'R-2042', targetUser:'헬퍼모드', reporterUser:'초보냥이', reason:'cheat', type:'chat',
-    reportedAt: now - 40*MIN, duplicateCount:5, priorOffenses:0, status:'pending',
-    context:[
-      {user:'초보냥이', time:'13:20', text:'저 사람 반응속도 실화냐'},
-      {user:'헬퍼모드', time:'13:20', text:'ㅇㅇ 매크로 씀 ㅋㅋ', flagged:true},
-    ],
-  },
-  {
-    id:'R-2043', targetUser:'광고업자', reporterUser:'플레이어_2831', reason:'spam', type:'chat',
-    reportedAt: now - 90*MIN, duplicateCount:8, priorOffenses:2, status:'pending',
-    context:[
-      {user:'광고업자', time:'12:10', text:'게임머니 최저가 문의 카톡 gold1004', flagged:true},
-      {user:'광고업자', time:'12:11', text:'게임머니 최저가 문의 카톡 gold1004', flagged:true},
-    ],
-  },
-  {
-    id:'R-2044', targetUser:'조용한스토커', reporterUser:'익명유저', reason:'harass', type:'voice',
-    reportedAt: now - 12*MIN, duplicateCount:0, priorOffenses:0, status:'pending',
-    context:[
-      {user:'익명유저', time:'14:18', text:'(음성) 그만 좀 따라다니세요'},
-      {user:'조용한스토커', time:'14:19', text:'(음성) 계속되는 욕설 및 위협 발언 — 최근 30초 녹음 증거 첨부됨', flagged:true},
-    ],
-  },
-  {
-    id:'R-2045', targetUser:'분노조절장애', reporterUser:'평화주의자', reason:'other', type:'chat',
-    reportedAt: now - 3*MIN, duplicateCount:0, priorOffenses:0, status:'pending',
-    context:[
-      {user:'분노조절장애', time:'14:27', text:'이딴식으로 할거면 게임을 접어', flagged:true},
-    ],
-  },
-
-  // ── 완료된 내역 ──
+/* ── 완료된 내역 (아직 DB 미연동 — 큐/처리 액션만 실 API 연동, 히스토리는 추후 작업) ── */
+const HISTORY_MOCK = [
   {
     id:'R-1998', targetUser:'욕쟁이할배', reporterUser:'용사_Yujin', reason:'abuse', type:'chat',
     reportedAt: now - 5*HOUR, duplicateCount:3, priorOffenses:3, status:'sanctioned',
@@ -94,8 +55,45 @@ let reports = [
   },
 ];
 
+let reports = [...HISTORY_MOCK];
 let activeTab = 'queue';
 let sanctionTargetId = null, dismissTargetId = null;
+
+/* ── DB 신고 행 → 화면용 객체 매핑 ──
+   실 DB에는 reason(사유 분류)이 없어 'other'로 고정한다 (AI 판단 엔진 연결 전까지) */
+function mapReportRow(row){
+  const reportedText = row.content_text || row.content_path || '';
+  return {
+    id: String(row.id),
+    targetUser: row.reported_id,
+    reporterUser: row.reporter_id,
+    reason: 'other',
+    type: row.content_type === 'VOICE' ? 'voice' : 'chat',
+    reportedAt: new Date(row.created_at).getTime(),
+    duplicateCount: row.duplicate_count || 0,
+    priorOffenses: row.prior_offenses || 0,
+    status: 'pending',
+    context: [{
+      user: row.reported_id,
+      time: new Date(row.created_at).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }),
+      text: row.content_type === 'VOICE' ? `(음성 신고) ${reportedText}` : reportedText,
+      flagged: true,
+    }],
+  };
+}
+
+/* ── 대기 큐 실데이터 로드 ── */
+async function loadDashboard(){
+  try {
+    const res = await fetch(`${API_BASE}/api/dashboard`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    reports = [...data.hitl_reports.map(mapReportRow), ...HISTORY_MOCK];
+  } catch (err) {
+    console.error('대시보드 로드 실패 — 웹 백엔드(localhost:8001) 연결을 확인하세요.', err);
+  }
+  renderAll();
+}
 
 /* ── 유틸 ── */
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -246,18 +244,30 @@ function openSanctionModal(id){
   $('sanctionOverlay').classList.add('open');
 }
 function closeSanctionModal(){ $('sanctionOverlay').classList.remove('open'); sanctionTargetId=null; }
-function confirmSanction(){
+async function confirmSanction(){
   const r = reports.find(x=>x.id===sanctionTargetId);
   if (!r) return;
   const type = $('sanctionType').value;
   const reasonText = $('sanctionReasonText').value.trim();
-  r.status = 'sanctioned';
-  r.handledBy = CURRENT_ADMIN;
-  r.handledAt = Date.now();
-  r.sanction = { type, reason: reasonText || `${SANCTION_LABELS[type]} 처리` };
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/reports/${r.id}/sanction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sanction_type: type,
+        reason: reasonText || `${SANCTION_LABELS[type]} 처리`,
+        reviewer_id: CURRENT_ADMIN,
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    console.error('제재 처리 실패', err);
+    showToast('서버 반영에 실패했습니다. 웹 백엔드 연결을 확인해주세요.');
+    return;
+  }
   closeSanctionModal();
   showToast(`${r.targetUser}님에게 "${SANCTION_LABELS[type]}" 처리를 완료했습니다.`);
-  renderAll();
+  await loadDashboard();
 }
 
 /* ── 신고 취소 모달 ── */
@@ -269,18 +279,26 @@ function openDismissModal(id){
   $('dismissOverlay').classList.add('open');
 }
 function closeDismissModal(){ $('dismissOverlay').classList.remove('open'); dismissTargetId=null; }
-function confirmDismiss(){
+async function confirmDismiss(){
   const r = reports.find(x=>x.id===dismissTargetId);
   if (!r) return;
   const reasonText = $('dismissReasonText').value.trim();
   if (!reasonText){ $('dismissReasonText').focus(); return; }
-  r.status = 'dismissed';
-  r.handledBy = CURRENT_ADMIN;
-  r.handledAt = Date.now();
-  r.dismissReason = reasonText;
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/reports/${r.id}/dismiss`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reasonText, reviewer_id: CURRENT_ADMIN }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    console.error('신고 취소 처리 실패', err);
+    showToast('서버 반영에 실패했습니다. 웹 백엔드 연결을 확인해주세요.');
+    return;
+  }
   closeDismissModal();
   showToast(`${r.targetUser}님에 대한 신고를 취소 처리했습니다.`);
-  renderAll();
+  await loadDashboard();
 }
 
 /* ── 상세 보기 모달 (완료 내역) ── */
@@ -326,10 +344,10 @@ const CURRENT_ADMIN = 'CS_민지';
 document.addEventListener('DOMContentLoaded', () => {
   $('adminName').textContent = CURRENT_ADMIN;
   switchTab('queue');
-  renderAll();
+  loadDashboard();
   ['qFilterReason','qFilterType','qSort'].forEach(id => $(id).addEventListener('change', renderQueue));
   $('qSearch').addEventListener('input', renderQueue);
   ['hFilterPeriod','hFilterResult'].forEach(id => $(id).addEventListener('change', renderHistory));
   $('hSearch').addEventListener('input', renderHistory);
-  setInterval(()=>{ renderStats(); renderQueue(); }, 30000); // SLA 경과시간 자동 갱신
+  setInterval(loadDashboard, 30000); // 대기 큐 + SLA 경과시간 자동 갱신
 });
