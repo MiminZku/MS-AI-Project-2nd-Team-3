@@ -32,20 +32,18 @@ function setRemoteAudioStream(stream) {
 // 지금 이 라운드에서 녹음할 오디오 소스를 고른다.
 // 상대방 오디오(remoteAudioStream)가 있으면 그걸 우선 쓰고, 없으면(현재 상태) 임시로 내 마이크를 쓴다.
 async function getRecordingSource() {
-  if (remoteAudioStream) return remoteAudioStream;
   return ensureMicStream();
 }
 
 async function ensureMicStream() {
   if (micStream) return micStream;
   if (micPermissionDenied) return null;
-  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+  if (!navigator.mediaDevices?.getUserMedia) {
     micPermissionDenied = true;
     return null;
   }
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    micStream.getAudioTracks().forEach(t => t.enabled = !micMuted); // 이전에 꺼둔 상태였다면 유지
     return micStream;
   } catch (err) {
     micPermissionDenied = true;
@@ -54,12 +52,31 @@ async function ensureMicStream() {
   }
 }
 
+async function handleMicConsentChange(event) {
+  if (!event.target.checked) return;
+
+  const stream = await ensureMicStream();
+  if (stream) return;
+
+  event.target.checked = false;
+  recordingConsented = false;
+  if (!window.isSecureContext && location.hostname !== 'localhost') {
+    showToast('마이크는 HTTPS 또는 localhost에서만 사용할 수 있습니다.');
+  } else {
+    showToast('마이크 권한이 거부되었거나 사용할 수 없습니다.');
+  }
+}
+
+$id('consentMic')?.addEventListener('change', handleMicConsentChange);
+
 /* ═══════════════════════════════════════════════════════
    헤더 아이콘: 마이크 온/오프, 음성 출력 온/오프
 ═══════════════════════════════════════════════════════ */
 function toggleMicMute() {
   micMuted = !micMuted;
-  if (micStream) micStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+  if (micStream) {
+    micStream.getAudioTracks().forEach(track => { track.enabled = !micMuted; });
+  }
   updateMicMuteUI();
 }
 
@@ -111,6 +128,11 @@ async function startRecording() {
     return;
   }
 
+  if (!window.MediaRecorder) {
+    showToast('이 브라우저는 음성 녹음을 지원하지 않습니다.');
+    return;
+  }
+
   recOn = true;
   recordedChunks = [];
   const mimeType = pickMimeType();
@@ -151,4 +173,179 @@ function uploadRecording(blob) {
   } catch (err) {
     console.warn('음성 업로드 요청 생성 실패:', err);
   }
+}
+
+/* =========================
+   WEBRTC VOICE CHAT
+   ========================= */
+let peerConnection = null;
+let webRtcStarting = false;
+let webRtcCallStarted = false;
+let remoteDescriptionSet = false;
+let pendingIceCandidates = [];
+
+const WEBRTC_CONFIGURATION = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+function isVoiceEnabled() {
+  const micConsent = $id('consentMic');
+  const speakerConsent = $id('consentVoice');
+  return Boolean(micConsent?.checked || speakerConsent?.checked);
+}
+
+function isSpeakerOutputEnabled() {
+  return Boolean($id('consentVoice')?.checked);
+}
+
+function sendWebRtcMessage(payload) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  ws.send(JSON.stringify(payload));
+  return true;
+}
+
+function ensureRemoteAudioElement() {
+  let audioEl = $id('remoteAudio');
+  if (!audioEl) {
+    audioEl = document.createElement('audio');
+    audioEl.id = 'remoteAudio';
+    audioEl.autoplay = true;
+    audioEl.playsInline = true;
+    audioEl.setAttribute('aria-label', '상대방 음성');
+    document.body.appendChild(audioEl);
+  }
+  return audioEl;
+}
+
+async function flushPendingIceCandidates() {
+  if (!peerConnection?.remoteDescription) return;
+  const candidates = pendingIceCandidates.splice(0);
+  for (const candidate of candidates) {
+    try {
+      await peerConnection.addIceCandidate(candidate);
+    } catch (err) {
+      console.warn('대기 중인 ICE 후보 추가 실패:', err);
+    }
+  }
+}
+
+async function initWebRTC() {
+  if (peerConnection) return peerConnection;
+
+  peerConnection = new RTCPeerConnection(WEBRTC_CONFIGURATION);
+  remoteDescriptionSet = false;
+
+  const micEnabled = Boolean($id('consentMic')?.checked);
+  if (micEnabled) {
+    const myStream = await ensureMicStream();
+    if (myStream) {
+      myStream.getAudioTracks().forEach(track => {
+        track.enabled = !micMuted;
+        peerConnection.addTrack(track, myStream);
+      });
+    }
+  }
+
+  // 마이크를 쓰지 않는 사용자도 상대방 음성을 받을 수 있도록 수신 슬롯을 만든다.
+  if (!peerConnection.getTransceivers().some(t => t.receiver.track.kind === 'audio')) {
+    peerConnection.addTransceiver('audio', { direction: micEnabled ? 'sendrecv' : 'recvonly' });
+  }
+
+  peerConnection.ontrack = (event) => {
+    const remoteStream = event.streams?.[0] || new MediaStream([event.track]);
+    setRemoteAudioStream(remoteStream);
+    const audioEl = ensureRemoteAudioElement();
+    audioEl.srcObject = remoteStream;
+    audioEl.muted = outputMuted || !isSpeakerOutputEnabled();
+    audioEl.play().catch(() => {
+      // 브라우저 자동 재생 정책으로 실패할 수 있으며, 사용자 상호작용 후 재생을 재시도한다.
+    });
+  };
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      sendWebRtcMessage({ type: 'webrtc_ice_candidate', candidate: event.candidate });
+    }
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    if (['failed', 'closed', 'disconnected'].includes(peerConnection.connectionState)) {
+      const audioEl = $id('remoteAudio');
+      if (audioEl) audioEl.srcObject = null;
+      setRemoteAudioStream(null);
+    }
+  };
+
+  return peerConnection;
+}
+
+async function startCall() {
+  if (!isVoiceEnabled() || webRtcCallStarted || webRtcStarting) return;
+  webRtcStarting = true;
+  try {
+    const pc = await initWebRTC();
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    if (sendWebRtcMessage({ type: 'webrtc_offer', offer: pc.localDescription })) {
+      webRtcCallStarted = true;
+    }
+  } catch (err) {
+    console.warn('WebRTC 통화 시작 실패:', err);
+    closeWebRTC();
+  } finally {
+    webRtcStarting = false;
+  }
+}
+
+async function handleWebRtcMessage(data) {
+  if (!data?.type) return;
+
+  try {
+    if (data.type === 'webrtc_offer') {
+      const pc = await initWebRTC();
+      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      remoteDescriptionSet = true;
+      await flushPendingIceCandidates();
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      sendWebRtcMessage({ type: 'webrtc_answer', answer: pc.localDescription });
+      webRtcCallStarted = true;
+    } else if (data.type === 'webrtc_answer') {
+      if (!peerConnection) return;
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      remoteDescriptionSet = true;
+      await flushPendingIceCandidates();
+    } else if (data.type === 'webrtc_ice_candidate' && data.candidate) {
+      const candidate = new RTCIceCandidate(data.candidate);
+      if (peerConnection?.remoteDescription) {
+        await peerConnection.addIceCandidate(candidate);
+      } else {
+        pendingIceCandidates.push(candidate);
+      }
+    }
+  } catch (err) {
+    console.warn('WebRTC 시그널 처리 실패:', err);
+  }
+}
+
+function maybeStartWebRTC() {
+  if (!isVoiceEnabled() || !currentOpponentName || !MY_NAME) return;
+  // 두 클라이언트가 동시에 Offer를 만들지 않도록 ID가 작은 쪽만 발신한다.
+  if (String(MY_NAME) < String(currentOpponentName)) startCall();
+}
+
+function closeWebRTC() {
+  webRtcCallStarted = false;
+  webRtcStarting = false;
+  remoteDescriptionSet = false;
+  pendingIceCandidates = [];
+  if (peerConnection) {
+    peerConnection.ontrack = null;
+    peerConnection.onicecandidate = null;
+    peerConnection.close();
+    peerConnection = null;
+  }
+  const audioEl = $id('remoteAudio');
+  if (audioEl) audioEl.srcObject = null;
+  setRemoteAudioStream(null);
 }

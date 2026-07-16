@@ -10,6 +10,7 @@ function showModeSelect() {
   gameActive = false;
   if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }
   stopRecording();
+  closeWebRTC();
   if (ws) { ws.close(); ws = null; } // 멀티 중이었다면 즉시 연결을 끊어서 상대방 참가자 목록도 바로 갱신되게 함
   $id('goOverlay').classList.remove('show');
   $id('countdownOverlay').classList.remove('show');
@@ -17,7 +18,23 @@ function showModeSelect() {
   $id('modeOverlay').style.display = 'flex';
 }
 
-async function selectMode(mode) {
+function restartToReadyRoom() {
+  clearInterval(timerInterval);
+  clearTimeout(aiTimeout);
+  clearTimeout(aiMoveTimeout);
+  clearInterval(countdownStep);
+  countdownActive = false;
+  gameActive = false;
+  if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }
+  stopRecording();
+  closeWebRTC();
+
+  $id('goOverlay').classList.remove('show');
+  $id('countdownOverlay').classList.remove('show');
+  if (gameMode) showReadyScreen(gameMode);
+}
+
+function selectMode(mode) {
   gameMode = mode;
   $id('modeOverlay').style.display = 'none';
 
@@ -30,12 +47,6 @@ async function selectMode(mode) {
     updateOpponentDisplay();
     setPresence(1); // 서버 응답이 오기 전까지는 나뿐이므로 대기 화면부터 표시
     $id('chatHistory').innerHTML = '';
-    const loginOk = await loginToChatServer();
-    if (!loginOk) {
-      $id('sidePanel').style.display = 'none';
-      $id('modeOverlay').style.display = 'flex';
-      return;
-    }
     seedDemoChatMessages(); // 임시: 신고 버튼 테스트용 예시 채팅
     connectChat();
   } else {
@@ -64,9 +75,10 @@ function showReadyScreen(mode) {
 }
 
 function confirmGameStart() {
-  // '음성 사용' 또는 '마이크 사용' 중 하나라도 체크돼 있으면 이번 라운드는 녹음 진행
-  recordingConsented = $id('consentVoice').checked || $id('consentMic').checked;
+  // '마이크 사용'을 체크한 경우에만 이번 라운드 녹음 진행 (스피커 출력은 녹음과 무관)
+  recordingConsented = $id('consentMic').checked;
   $id('readyOverlay').classList.remove('show');
+  maybeStartWebRTC();
   beginGame();
 }
 
