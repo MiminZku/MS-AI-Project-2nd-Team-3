@@ -134,6 +134,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast({"type": "chat", "message": msg})
                         # 향후 이 부분에서 AI(LLM) 기반 욕설 필터링 및 DB 저장을 수행할 수 있습니다.
 
+            elif msg_type in {"webrtc_offer", "webrtc_answer", "webrtc_ice_candidate"}:
+                # WebRTC 시그널은 발신자 자신에게 되돌리지 않고 상대방에게만 전달한다.
+                await manager.relay_to_others(websocket, data)
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast_presence()
