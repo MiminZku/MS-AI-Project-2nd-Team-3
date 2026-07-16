@@ -17,7 +17,7 @@ function showModeSelect() {
   $id('modeOverlay').style.display = 'flex';
 }
 
-function selectMode(mode) {
+async function selectMode(mode) {
   gameMode = mode;
   $id('modeOverlay').style.display = 'none';
 
@@ -30,6 +30,12 @@ function selectMode(mode) {
     updateOpponentDisplay();
     setPresence(1); // 서버 응답이 오기 전까지는 나뿐이므로 대기 화면부터 표시
     $id('chatHistory').innerHTML = '';
+    const loginOk = await loginToChatServer();
+    if (!loginOk) {
+      $id('sidePanel').style.display = 'none';
+      $id('modeOverlay').style.display = 'flex';
+      return;
+    }
     seedDemoChatMessages(); // 임시: 신고 버튼 테스트용 예시 채팅
     connectChat();
   } else {
@@ -52,6 +58,8 @@ function selectMode(mode) {
 function showReadyScreen(mode) {
   $id('readyIcon').textContent = mode === 'multi' ? '👥' : '🤖';
   $id('readyTitle').textContent = mode === 'multi' ? '멀티플레이' : 'AI 모드';
+  $id('readyPlayerList').style.display = mode === 'multi' ? 'block' : 'none';
+  if (mode === 'multi') updateReadyPlayerList();
   $id('readyOverlay').classList.add('show');
 }
 
@@ -72,11 +80,33 @@ function setPresence(count) {
   } else {
     waiting.classList.remove('show');
   }
+  updateReadyPlayerList();
+}
+
+function updateReadyPlayerList() {
+  if (gameMode !== 'multi') return;
+
+  const selfName = $id('readySelfName');
+  const opponentNameEl = $id('readyOpponentName');
+  const opponentStatus = $id('readyOpponentStatus');
+  if (!selfName || !opponentNameEl || !opponentStatus) return;
+
+  selfName.textContent = MY_NAME || '나';
+  if (currentOpponentName) {
+    opponentNameEl.textContent = currentOpponentName;
+    opponentStatus.textContent = '접속 중';
+    opponentStatus.classList.add('connected');
+  } else {
+    opponentNameEl.textContent = '상대 플레이어 대기 중';
+    opponentStatus.textContent = '대기 중';
+    opponentStatus.classList.remove('connected');
+  }
 }
 
 // 상대방의 실제 닉네임을 P2 배너/라벨에 반영 — 대기 중엔 '기다리는 중', 알게 되면 이름으로 표시
 function updateOpponentDisplay() {
   if (gameMode !== 'multi') return;
+  updateReadyPlayerList();
   if (currentOpponentName) {
     $id('p2Label').textContent = `👤 ${currentOpponentName}`;
     $id('p2BannerName').textContent = currentOpponentName;
