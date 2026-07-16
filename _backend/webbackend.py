@@ -26,9 +26,10 @@ WEBBACKEND_PORT = int(os.getenv("WEBBACKEND_PORT", "8001"))
 
 app = FastAPI(title="관리자 대시보드 웹 백엔드")
 
+# 로컬 데모 전용 (배포 안 함): admin.html이 file://로도, 어떤 정적 서버 포트로도 열릴 수 있어 전체 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -60,21 +61,123 @@ class AppealSubmission(BaseModel):
     reason: str
 
 
+# AI 판단 엔진(gpt-5-mini)이 아직 연결되지 않아 PENDING 신고도 전량 관리자가 직접 심사한다.
+# (엔진이 붙으면 이 상태 목록은 좁혀질 예정 — PROJECT.md 3번 섹션 참고)
+QUEUE_STATUSES = ("PENDING", "MANUAL_REVIEW_REQUIRED")
+
+
+def _notify_game_server(payload: dict) -> dict:
+    """게임 서버에 실제 반영(뮤트/킥 등)을 요청한다. 게임 서버가 아직 없어도 관리자 판단/DB 반영은 막지 않는다."""
+    try:
+        response = httpx.post(
+            f"{GAME_SERVER_URL}/admin/sanction-command", json=payload, timeout=5.0
+        )
+        response.raise_for_status()
+        return {"ok": True, "data": response.json()}
+    except httpx.HTTPError as e:
+        return {"ok": False, "error": str(e)}
+
+
+class SanctionCreate(BaseModel):
+    sanction_type: Literal["warn", "mute_1d", "mute_7d", "ban_perm"]
+    reason: str
+    reviewer_id: str
+
+
+class DismissCreate(BaseModel):
+    reason: str
+    reviewer_id: str
+
+
+SANCTION_TYPE_MAP = {
+    "warn": ("WARN", 0),
+    "mute_1d": ("MUTE", 1),
+    "mute_7d": ("MUTE", 7),
+    "ban_perm": ("BAN", 0),  # duration_days=0을 영구정지 표식으로 사용 (ended_at도 NULL 유지)
+}
+
+
 @app.get("/api/dashboard")
 def get_dashboard():
-    """HITL 대기 중인 신고 목록 + 대기 중인 이의 신청 목록을 함께 반환한다."""
+    """대기 중인 신고 큐(대상 유저의 중복 신고 수·과거 제재 이력 포함) + 대기 중인 이의 신청 목록을 반환한다."""
     with get_db_cursor() as cur:
         cur.execute(
-            "SELECT * FROM reports WHERE status = 'MANUAL_REVIEW_REQUIRED' ORDER BY created_at ASC;"
+            """
+            SELECT r.*,
+                COALESCE(dup.dup_count, 1) - 1 AS duplicate_count,
+                COALESCE(prior.prior_count, 0) AS prior_offenses
+            FROM reports r
+            LEFT JOIN (
+                SELECT reported_id, COUNT(*) AS dup_count
+                FROM reports
+                WHERE status = ANY(%(statuses)s)
+                GROUP BY reported_id
+            ) dup ON dup.reported_id = r.reported_id
+            LEFT JOIN (
+                SELECT user_id, COUNT(*) AS prior_count
+                FROM sanctions
+                GROUP BY user_id
+            ) prior ON prior.user_id = r.reported_id
+            WHERE r.status = ANY(%(statuses)s)
+            ORDER BY r.created_at ASC;
+            """,
+            {"statuses": list(QUEUE_STATUSES)},
         )
-        hitl_reports = cur.fetchall()
+        queued_reports = cur.fetchall()
 
         cur.execute(
             "SELECT * FROM appeals WHERE status = 'PENDING' ORDER BY created_at ASC;"
         )
         pending_appeals = cur.fetchall()
 
-    return {"hitl_reports": hitl_reports, "pending_appeals": pending_appeals}
+    return {"hitl_reports": queued_reports, "pending_appeals": pending_appeals}
+
+
+@app.post("/api/admin/reports/{report_id}/sanction")
+def create_sanction(report_id: int, body: SanctionCreate):
+    """관리자가 직접 고른 제재 수위를 적용한다 (AI 사전 판정이 아직 없는 현재 단계용)."""
+    sanction_type, duration_days = SANCTION_TYPE_MAP[body.sanction_type]
+
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM reports WHERE id = %s;", (report_id,))
+        report = cur.fetchone()
+        if not report:
+            raise HTTPException(status_code=404, detail="해당 report_id의 신고 내역을 찾을 수 없습니다.")
+
+        cur.execute(
+            """
+            INSERT INTO sanctions (user_id, ai_result, type, duration_days)
+            VALUES (%s, %s, %s, %s) RETURNING *;
+            """,
+            (report["reported_id"], f"관리자 수동 판정: {body.reason}", sanction_type, duration_days),
+        )
+        sanction = cur.fetchone()
+
+        cur.execute("UPDATE reports SET status = 'COMPLETED' WHERE id = %s;", (report_id,))
+
+    game_server_sync = _notify_game_server(
+        {
+            "report_id": report_id,
+            "user_id": report["reported_id"],
+            "sanction_type": body.sanction_type,
+            "reviewer_id": body.reviewer_id,
+        }
+    )
+
+    return {"report_id": report_id, "sanction": sanction, "game_server_sync": game_server_sync}
+
+
+@app.post("/api/admin/reports/{report_id}/dismiss")
+def dismiss_report(report_id: int, body: DismissCreate):
+    """신고를 오탐/근거 부족으로 취소 처리한다."""
+    with get_db_cursor() as cur:
+        cur.execute("SELECT id FROM reports WHERE id = %s;", (report_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="해당 report_id의 신고 내역을 찾을 수 없습니다.")
+
+        cur.execute("UPDATE reports SET status = 'DISMISSED' WHERE id = %s;", (report_id,))
+
+    return {"report_id": report_id, "status": "DISMISSED", "reason": body.reason, "reviewer_id": body.reviewer_id}
 
 
 @app.post("/api/admin/sanction-command")
@@ -112,24 +215,12 @@ def send_sanction_command(command: SanctionCommand):
                 (command.report_id,),
             )
 
-    try:
-        response = httpx.post(
-            f"{GAME_SERVER_URL}/admin/sanction-command",
-            json=command.model_dump(),
-            timeout=5.0,
-        )
-        response.raise_for_status()
-        game_server_result = response.json()
-    except httpx.HTTPError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"DB는 갱신했지만 게임 서버 반영 호출에 실패했습니다: {e}",
-        )
+    game_server_sync = _notify_game_server(command.model_dump())
 
     return {
         "report_id": command.report_id,
         "action": command.action,
-        "game_server_response": game_server_result,
+        "game_server_sync": game_server_sync,
     }
 
 
