@@ -27,6 +27,26 @@ class GameStateManager:
             self.active_connections.remove(websocket)
         if websocket in self.clients_info:
             del self.clients_info[websocket]
+            
+        if len(self.active_connections) == 0:
+            self.history.clear()
+
+    async def kick_user(self, nickname: str, reason: str):
+        target_ws = None
+        for ws, name in self.clients_info.items():
+            if name == nickname:
+                target_ws = ws
+                break
+        
+        if target_ws:
+            try:
+                await target_ws.send_json({"type": "system", "text": f"강제 퇴장되었습니다: {reason}"})
+                await target_ws.close()
+            except:
+                pass
+            self.disconnect(target_ws)
+            await self.broadcast_presence()
+            await self.broadcast_opponent_info()
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
