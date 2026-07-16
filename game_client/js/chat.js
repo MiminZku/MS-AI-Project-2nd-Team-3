@@ -108,7 +108,7 @@ function appendChatMsg(msg) {
   const div = document.createElement('div');
   div.className = 'msg';
   const isMe = msg.user === MY_NAME;
-  div.innerHTML = `<div class="msg-meta"><span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#00E5A0'}">${escHtml(msg.user)}</span><span class="msg-time">${msg.time}</span></div><div class="msg-text">${escHtml(msg.text)}</div>`;
+  div.innerHTML = `<div class="msg-meta"><span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#0EA968'}">${escHtml(msg.user)}</span><span class="msg-time">${msg.time}</span></div><div class="msg-text">${escHtml(msg.text)}</div>`;
 
   // 상대방 메시지에만 개별 신고 버튼 노출 (내 메시지는 신고 불가)
   if (!isMe) {
