@@ -169,6 +169,15 @@ audio.mailbox-evidence { width:100%; height:30px; }
 .ready-icon { font-size:52px; margin-bottom:14px; }
 .ready-title { font-size:22px; font-weight:700; margin-bottom:8px; }
 .ready-desc { font-family:var(--mono); font-size:13px; color:var(--text-muted); margin-bottom:32px; }
+.ready-player-list { width:320px; margin:0 auto 24px; padding:8px; background:var(--panel); border:1px solid var(--border); border-radius:10px; text-align:left; }
+.ready-player-row { display:flex; align-items:center; gap:8px; padding:8px 10px; font-family:var(--mono); font-size:12px; }
+.ready-player-row + .ready-player-row { border-top:1px solid var(--border); }
+.ready-player-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.ready-player-dot.self { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+.ready-player-dot.opponent { background:#FF9F43; box-shadow:0 0 6px #FF9F43; }
+.ready-player-name { flex:1; color:var(--text); }
+.ready-player-status { color:var(--text-dim); font-size:10px; }
+.ready-player-status.connected { color:var(--success); }
 .ready-box .go-btn { display:block; margin:0 auto; min-width:220px; }
 .ready-back { margin-top:16px; background:transparent; border:none; color:var(--text-dim); font-family:var(--mono); font-size:12px; cursor:pointer; text-decoration:underline; }
 .ready-back:hover { color:var(--text-muted); }

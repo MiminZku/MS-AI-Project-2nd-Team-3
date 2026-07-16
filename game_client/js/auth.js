@@ -7,18 +7,21 @@
 ═══════════════════════════════════════════════════════ */
 function submitLogin() {
   const id = $id('loginId').value.trim();
-  const pw = $id('loginPw').value.trim();
   const err = $id('loginError');
 
-  if (!id || !pw) {
+  if (!id) {
     err.style.display = 'block';
     return;
   }
   err.style.display = 'none';
 
+  MY_NAME = id;
+  $id('playerName').textContent = id;
+  $id('playerAvatar').textContent = id.slice(0, 2);
+  $id('p1Label').textContent = id;
+  $id('p1BannerName').textContent = id;
+  $id('goP1Name').textContent = `🎮 ${id}`;
   $id('loginOverlay').style.display = 'none';
-  $id('nicknameOverlay').classList.add('show');
-  $id('nicknameInput').focus();
 }
 
 function submitNickname() {
@@ -45,6 +48,4 @@ function submitNickname() {
   // 모드 선택 화면은 이미 그 아래 깔려 있으므로 별도 표시 처리 불필요
 }
 
-$id('loginId').addEventListener('keydown', e => { if (e.key === 'Enter') $id('loginPw').focus(); });
-$id('loginPw').addEventListener('keydown', e => { if (e.key === 'Enter') submitLogin(); });
-$id('nicknameInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitNickname(); });
+$id('loginId').addEventListener('keydown', e => { if (e.key === 'Enter') submitLogin(); });
