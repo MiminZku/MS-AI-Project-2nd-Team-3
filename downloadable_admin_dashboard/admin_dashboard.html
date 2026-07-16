@@ -1,154 +1,819 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>관리자 대시보드</title>
-  <style>
-    :root {
-      --bg: #07111f;
-      --panel: #0f1c2f;
-      --panel-2: #13263d;
-      --border: #23374d;
-      --text: #f3f6ff;
-      --muted: #7d8aa3;
-      --accent: #6c63ff;
-      --accent-2: #22c55e;
-      --danger: #ff5b70;
-      --warning: #ffb020;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Segoe UI", Pretendard, sans-serif; background: linear-gradient(135deg, #050b16 0%, #0b172b 100%); color: var(--text); min-height: 100vh; }
-    .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .login-card { width: min(420px, 100%); border: 1px solid var(--border); border-radius: 18px; background: rgba(15, 28, 47, 0.96); padding: 28px; box-shadow: 0 20px 45px rgba(0,0,0,0.3); }
-    .login-card h1 { margin: 0 0 8px; font-size: 24px; }
-    .login-card p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
-    .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-    .login-field label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-    .login-field input { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 14px; }
-    .login-btn { width: 100%; border: 0; border-radius: 10px; padding: 12px 14px; margin-top: 8px; cursor: pointer; background: linear-gradient(135deg, var(--accent), #8b7bff); color: white; font-weight: 700; }
-    .login-msg { min-height: 16px; margin-top: 10px; font-size: 13px; color: var(--danger); }
-    .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; display: none; }
-    .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(15, 28, 47, 0.95); box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-    .brand { display: flex; flex-direction: column; gap: 4px; }
-    .brand .title { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
-    .brand .sub { color: var(--muted); font-size: 12px; }
-    .admin-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; }
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; margin-bottom: 0; }
-    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-height: 92px; display: flex; flex-direction: column; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 10px 22px rgba(0,0,0,0.16); }
-    .card .label { color: var(--muted); font-size: 11px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
-    .card .value { font-size: 24px; font-weight: 800; line-height: 1; }
-    .card .value.danger { color: var(--danger); }
-    .card .value.success { color: var(--accent-2); }
-    .card .value.warn { color: var(--warning); }
-    .panel { margin-top: 0; border: 1px solid var(--border); border-radius: 16px; background: rgba(15, 28, 47, 0.95); overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.22); }
-    .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); padding: 12px 16px 0; }
-    .tab { border: 0; padding: 12px 16px; border-radius: 10px 10px 0 0; cursor: pointer; background: transparent; color: var(--muted); font-weight: 700; font-size: 15px; }
-    .tab.active { background: var(--panel-2); color: var(--text); }
-    .tab-content { padding: 16px; display: none; min-height: 420px; }
-    .tab-content.active { display: block; }
-    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    .filters select, .filters input, .modal-card select, .modal-card textarea { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 9px 11px; border-radius: 8px; min-width: 200px; font-size: 13px; }
-    .modal-card select { width: 100%; }
-    .modal-card textarea { width: 100%; min-height: 90px; resize: vertical; margin-top: 10px; }
-    .field-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-    .field-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
-    th { background: rgba(255,255,255,0.03); color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid transparent; }
-    .badge.pending { background: rgba(255,176,32,.16); color: var(--warning); border-color: rgba(255,176,32,.35); }
-    .badge.review { background: rgba(255,176,32,.16); color: var(--warning); border-color: rgba(255,176,32,.35); }
-    .badge.done { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
-    .badge.dismiss { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
-    .badge.mute { background: rgba(108,99,255,.16); color: #b9b3ff; border-color: rgba(108,99,255,.25); }
-    .badge.ban { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
-    .badge.approve { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
-    .badge.reject { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
-    .status-btn { appearance: none; font: inherit; cursor: pointer; border: 0; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .status-btn:hover { opacity: 0.92; transform: translateY(-1px); }
-    .toast { position: fixed; top: 18px; right: 18px; min-width: 320px; max-width: 360px; border: 1px solid var(--border); border-left: 4px solid var(--warning); background: rgba(15, 28, 47, 0.98); color: var(--text); padding: 12px 14px; border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.25); display: none; z-index: 50; }
-    .toast .title { font-weight: 800; margin-bottom: 4px; }
-    .toast .msg { font-size: 13px; color: var(--muted); margin-bottom: 8px; line-height: 1.4; }
-    .toast .actions { display: flex; gap: 8px; }
-    .toast .actions button { border: 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 700; }
-    .toast .actions .review { background: var(--warning); color: #111; }
-    .toast .actions .dismiss { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .toast.detail-toast { border-left-color: var(--accent); min-width: 340px; max-width: 380px; }
-    .toast .detail-box { font-size: 13px; color: var(--text); margin-bottom: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); padding: 10px; line-height: 1.5; white-space: pre-wrap; max-height: 240px; overflow: auto; }
-    .toast .detail-row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); margin-bottom: 6px; font-size: 12px; }
-    .toast .detail-row strong { color: var(--text); }
-    .muted { color: var(--muted); }
-    @media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .header { flex-direction: column; align-items: flex-start; } }
-  </style>
-</head>
-<body>
-  <div class="login-screen" id="loginScreen">
-    <div class="login-card">
-      <h1>관리자 로그인</h1>
-      <p>대시보드에 접근하려면 관리자 계정으로 로그인하세요.</p>
-      <div class="login-field"><label for="loginId">아이디</label><input id="loginId" type="text" placeholder="admin01" /></div>
-      <div class="login-field"><label for="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="admin1234" /></div>
-      <button class="login-btn" id="loginBtn">로그인</button>
-      <div class="login-msg" id="loginMsg"></div>
-    </div>
-  </div>
-  <div id="toast" class="toast" style="display:none;">
-    <div class="title">새 신고 접수</div>
-    <div class="msg" id="toastMsg"></div>
-    <div class="actions"><button class="review" onclick="openReviewModal()">검토하기</button><button class="dismiss" onclick="hideToast()">닫기</button></div>
-  </div>
-  <div id="detailToast" class="toast detail-toast" style="display:none;">
-    <div class="title" id="detailToastTitle">처리 결과 상세</div>
-    <div class="msg" id="detailToastMeta"></div>
-    <div class="detail-box" id="detailToastBody"></div>
-    <div class="actions"><button class="dismiss" onclick="hideDetailToast()">닫기</button></div>
-  </div>
-  <div class="wrap" id="dashboardWrap">
-    <div class="header"><div class="brand"><div class="title">관리자 대시보드</div><div class="sub">유저 · 신고 내역 · 제재 내역 · 이의 신청</div></div><div class="admin-pill">관리자: admin01</div></div>
-    <div class="panel">
-      <div class="tabs"><button class="tab active" data-tab="reports">신고 내역</button><button class="tab" data-tab="sanctions">제재 내역</button><button class="tab" data-tab="appeals">이의 신청</button></div>
-      <div class="tab-content active" id="reports"><div class="filters"><select id="reportStatusFilter"><option value="all">전체 상태</option><option value="PENDING">대기</option><option value="MANUAL_REVIEW_REQUIRED">수동 검토 필요</option><option value="COMPLETED">처리 완료</option><option value="DISMISSED">신고 취소</option></select><input id="reportSearch" type="text" placeholder="신고자/피신고자 ID 검색" /></div><table><thead><tr><th>신고번호</th><th>신고 일시</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead><tbody id="reportBody"></tbody></table></div>
-      <div class="tab-content" id="sanctions"><div class="filters"><select id="sanctionTypeFilter"><option value="all">전체 제재</option><option value="MUTE">채팅 금지</option><option value="BAN">계정 정지</option></select><input id="sanctionSearch" type="text" placeholder="대상자 ID 검색" /></div><table><thead><tr><th>제재번호</th><th>제재 일시</th><th>대상자 ID</th><th>AI 추론 결과</th><th>제재된 텍스트 원문</th><th>제재 종류</th><th>기간</th></tr></thead><tbody id="sanctionBody"></tbody></table></div>
-      <div class="tab-content" id="appeals"><div class="filters"><select id="appealStatusFilter"><option value="all">전체 상태</option><option value="PENDING">대기</option><option value="APPROVED">인용</option><option value="REJECTED">기각</option></select><input id="appealSearch" type="text" placeholder="신청자 ID 검색" /></div><table><thead><tr><th>신청번호</th><th>신고번호</th><th>신청자 ID</th><th>사유</th><th>상태</th></tr></thead><tbody id="appealBody"></tbody></table></div>
-    </div>
-    <div class="grid"><div class="card"><div class="label">오늘 접수</div><div class="value" id="statToday">0</div></div><div class="card"><div class="label">대기 중</div><div class="value danger" id="statPending">0</div></div><div class="card"><div class="label">처리 완료</div><div class="value success" id="statDone">0</div></div><div class="card"><div class="label">활성 제재</div><div class="value warn" id="statSanction">0</div></div></div>
-  </div>
-  <script>
-    const reports = [
-      { id: 101, created_at: '2026-07-16 14:10', reporter_id: 'user_01', reported_id: 'user_02', status: 'PENDING', result: '대기', content: '욕설/비하 발언: "병신아 니가 비켜"' },
-      { id: 102, created_at: '2026-07-16 12:40', reporter_id: 'user_03', reported_id: 'user_04', status: 'MANUAL_REVIEW_REQUIRED', result: '수동 검토 필요', content: '매크로 사용 의심 패턴 로그 첨부' },
-      { id: 103, created_at: '2026-07-16 09:20', reporter_id: 'user_05', reported_id: 'user_06', status: 'COMPLETED', result: '제재 처리 완료', content: '반복적 욕설 및 비하 발언' },
-      { id: 104, created_at: '2026-07-15 22:10', reporter_id: 'user_07', reported_id: 'user_02', status: 'DISMISSED', result: '신고 취소', content: '오해로 확인된 단순 발언' }
-    ];
-    const sanctions = [
-      { id: 1, created_at: '2026-07-16 10:00', user_id: 'user_02', ai_result: '욕설 3단계', type: 'MUTE', duration_days: 7, original_text: '병신아 니가 비켜' },
-      { id: 2, created_at: '2026-07-15 18:05', user_id: 'user_04', ai_result: '매크로 사용 의심', type: 'BAN', duration_days: 30, original_text: '매크로 쓰고 경기 방해하는 행동 계속함' }
-    ];
-    const appeals = [
-      { id: 1, report_id: 101, user_id: 'user_02', reason: '허위 신고로 판단됨', status: 'PENDING' },
-      { id: 2, report_id: 104, user_id: 'user_07', reason: '신고 사유가 불충분함', status: 'REJECTED' }
-    ];
-    function escapeHtml(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
-    function hideDetailToast() { document.getElementById('detailToast').style.display = 'none'; }
-    function showReportDetailToast(reportId) {
-      const report = reports.find(item => item.id === reportId);
-      if (!report) return;
-      const statusText = report.status === 'PENDING' ? '대기' : report.status === 'MANUAL_REVIEW_REQUIRED' ? '수동 검토 필요' : report.status === 'COMPLETED' ? '제재 처리 완료' : '신고 취소';
-      const reviewText = report.review_reason || '미등록';
-      document.getElementById('detailToastTitle').textContent = `신고 내역 #${report.id}`;
-      document.getElementById('detailToastMeta').textContent = `${report.reporter_id} → ${report.reported_id}`;
-      document.getElementById('detailToastBody').innerHTML = `<div class="detail-row"><span>상태</span><strong>${escapeHtml(statusText)}</strong></div><div class="detail-row"><span>신고 일시</span><strong>${escapeHtml(report.created_at)}</strong></div><div class="detail-row"><span>처리 사유</span><strong>${escapeHtml(reviewText)}</strong></div><div style="margin-top:8px;color:#7d8aa3;">신고 내용</div><div style="margin-top:4px;">${escapeHtml(report.content || '신고 내용이 없습니다.')}</div>`;
-      document.getElementById('detailToast').style.display = 'block';
-    }
-    function renderReports() { const status = document.getElementById('reportStatusFilter').value; const query = document.getElementById('reportSearch').value.trim().toLowerCase(); const rows = reports.filter(r => (status === 'all' || r.status === status) && (!query || `${r.reporter_id} ${r.reported_id}`.includes(query))); document.getElementById('reportBody').innerHTML = rows.map(r => { const statusClass = r.status === 'PENDING' ? 'pending' : r.status === 'MANUAL_REVIEW_REQUIRED' ? 'review' : r.status === 'COMPLETED' ? 'done' : 'dismiss'; return `<tr><td>#${r.id}</td><td>${r.created_at}</td><td>${r.reporter_id}</td><td>${r.reported_id}</td><td><button class="status-btn badge ${statusClass}" type="button" onclick="showReportDetailToast(${r.id})">${r.result}</button></td></tr>`; }).join(''); }
-    function renderSanctions() { const type = document.getElementById('sanctionTypeFilter').value; const query = document.getElementById('sanctionSearch').value.trim().toLowerCase(); const rows = sanctions.filter(s => (type === 'all' || s.type === type) && (!query || s.user_id.includes(query))); document.getElementById('sanctionBody').innerHTML = rows.map(s => `<tr><td>#${s.id}</td><td>${s.created_at}</td><td>${s.user_id}</td><td>${s.ai_result}</td><td style="max-width:280px; white-space:pre-wrap; color:#f3d7a3;">${s.original_text || '원문 없음'}</td><td><span class="badge ${s.type === 'MUTE' ? 'mute' : 'ban'}">${s.type === 'MUTE' ? '채팅 금지' : '계정 정지'}</span></td><td>${s.duration_days}일</td></tr>`).join(''); }
-    function renderAppeals() { const status = document.getElementById('appealStatusFilter').value; const query = document.getElementById('appealSearch').value.trim().toLowerCase(); const rows = appeals.filter(a => (status === 'all' || a.status === status) && (!query || a.user_id.includes(query))); document.getElementById('appealBody').innerHTML = rows.map(a => `<tr><td>#${a.id}</td><td>#${a.report_id}</td><td>${a.user_id}</td><td>${a.reason}</td><td><span class="badge ${a.status === 'APPROVED' ? 'approve' : a.status === 'REJECTED' ? 'reject' : 'pending'}">${a.status === 'APPROVED' ? '인용' : a.status === 'REJECTED' ? '기각' : '대기'}</span></td></tr>`).join(''); }
-    function updateSummary() { document.getElementById('statToday').textContent = reports.length; document.getElementById('statPending').textContent = reports.filter(r => r.status === 'PENDING' || r.status === 'MANUAL_REVIEW_REQUIRED').length; document.getElementById('statDone').textContent = reports.filter(r => r.status === 'COMPLETED' || r.status === 'DISMISSED').length; document.getElementById('statSanction').textContent = sanctions.length; }
-    document.getElementById('loginBtn').addEventListener('click', () => { const id = document.getElementById('loginId').value.trim(); const pw = document.getElementById('loginPw').value.trim(); const msg = document.getElementById('loginMsg'); if (id === 'admin01' && pw === 'admin1234') { msg.textContent = ''; document.getElementById('loginScreen').style.display = 'none'; document.getElementById('dashboardWrap').style.display = 'block'; } else { msg.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.'; } });
-    document.querySelectorAll('.tab').forEach(tab => { tab.addEventListener('click', () => { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); tab.classList.add('active'); document.getElementById(tab.dataset.tab).classList.add('active'); }); });
-    ['reportStatusFilter', 'reportSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderReports)); ['reportStatusFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderReports)); ['sanctionTypeFilter', 'sanctionSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderSanctions)); ['sanctionTypeFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderSanctions)); ['appealStatusFilter', 'appealSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderAppeals)); ['appealStatusFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderAppeals)); updateSummary(); renderReports(); renderSanctions(); renderAppeals();
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>게임 CS 운영자 대시보드</title>
+    <style>
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --panel: #0f1c2f;
+  --panel-2: #13263d;
+  --border: #24374f;
+  --text: #f4f7ff;
+  --muted: #8e9bb1;
+  --blue: #6c63ff;
+  --green: #22c55e;
+  --yellow: #ffb020;
+  --red: #ff5b70;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #050b16 0%, #0b172b 100%);
+  color: var(--text);
+  font-family: "Segoe UI", Pretendard, Arial, sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(15, 28, 47, 0.96);
+  padding: 28px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--blue), #22c5e8);
+  color: #06101f;
+  font-weight: 900;
+}
+
+.eyebrow {
+  margin: 18px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+.muted,
+small {
+  color: var(--muted);
+}
+
+.login-card label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card input,
+.filters input,
+.filters select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 10px 12px;
+}
+
+.login-error {
+  min-height: 18px;
+  margin: 10px 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.primary {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--blue), #8b7bff);
+  color: white;
+  font-weight: 800;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  padding: 22px;
+  border-right: 1px solid var(--border);
+  background: rgba(7, 17, 31, 0.94);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.brand span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+nav button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  padding: 0 12px;
+}
+
+nav button.active,
+nav button:hover {
+  background: var(--panel-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.content {
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(15, 28, 47, 0.95);
+}
+
+.topbar .eyebrow {
+  margin-top: 0;
+}
+
+.operator {
+  color: var(--muted);
+}
+
+.operator strong {
+  color: var(--text);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.summary-grid article,
+.queue-panel,
+.detail-panel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(15, 28, 47, 0.95);
+}
+
+.summary-grid article {
+  padding: 16px;
+}
+
+.summary-grid span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.summary-grid strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 26px;
+}
+
+.work-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.queue-panel {
+  overflow: hidden;
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-heading .eyebrow {
+  margin-top: 0;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover,
+tbody tr.selected {
+  background: rgba(108, 99, 255, 0.12);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.badge.low {
+  color: #b5ffd1;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.badge.medium {
+  color: #ffe0a3;
+  background: rgba(255, 176, 32, 0.16);
+}
+
+.badge.high,
+.badge.critical {
+  color: #ffb3bd;
+  background: rgba(255, 91, 112, 0.16);
+}
+
+.badge.pending {
+  color: #ffe0a3;
+  background: rgba(255, 176, 32, 0.16);
+}
+
+.badge.completed {
+  color: #b5ffd1;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.detail-panel {
+  position: sticky;
+  top: 16px;
+  padding: 18px;
+}
+
+.detail-section {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(19, 38, 61, 0.72);
+}
+
+.detail-section h3 {
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.info-grid div {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(7, 17, 31, 0.55);
+}
+
+.info-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.info-grid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.log-list,
+.history-list,
+.evidence-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.log-list li,
+.history-list li,
+.evidence-list li {
+  padding: 10px;
+  border-left: 3px solid var(--blue);
+  background: rgba(7, 17, 31, 0.55);
+  border-radius: 0 10px 10px 0;
+  line-height: 1.45;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.action-grid button {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.action-grid button.danger {
+  border-color: rgba(255, 91, 112, 0.55);
+  color: #ffb3bd;
+}
+
+@media (max-width: 1100px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav {
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+
+  .summary-grid,
+  .work-area {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-panel {
+    position: static;
+  }
+}
+
+    </style>
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <form class="login-card" id="loginForm">
+        <div class="logo">CS</div>
+        <p class="eyebrow">Operator Console</p>
+        <h1>운영자 로그인</h1>
+        <p class="muted">게임 채팅 신고 검토와 제재 처리를 위한 관리자 화면입니다.</p>
+
+        <label>
+          <span>운영자 ID</span>
+          <input name="adminId" value="admin01" autocomplete="username" required />
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input name="password" type="password" value="admin1234" autocomplete="current-password" required />
+        </label>
+
+        <p class="login-error" id="loginError" aria-live="polite"></p>
+        <button class="primary" type="submit">로그인</button>
+        <small>시연 계정: admin01 / admin1234</small>
+      </form>
+    </section>
+
+    <main class="dashboard" id="dashboard" hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="logo">CS</div>
+          <div>
+            <strong>GameGuard Desk</strong>
+            <span>신고 제재 운영 콘솔</span>
+          </div>
+        </div>
+
+        <nav>
+          <button class="active" type="button" data-filter="all">신고 큐</button>
+          <button type="button" data-filter="pending">미처리 신고</button>
+          <button type="button" data-filter="high">고위험 신고</button>
+          <button type="button" data-filter="completed">처리 완료</button>
+        </nav>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Real-time Moderation</p>
+            <h1>운영자 대시보드</h1>
+          </div>
+          <div class="operator">담당자 <strong>관리자A</strong></div>
+        </header>
+
+        <section class="summary-grid" aria-label="신고 현황 요약">
+          <article><span>오늘 신규 신고</span><strong id="todayCount">0</strong></article>
+          <article><span>미처리 신고</span><strong id="pendingCount">0</strong></article>
+          <article><span>고위험 신고</span><strong id="highRiskCount">0</strong></article>
+          <article><span>평균 처리 시간</span><strong id="avgTime">0분</strong></article>
+          <article><span>제재율</span><strong id="sanctionRate">0%</strong></article>
+        </section>
+
+        <section class="work-area">
+          <section class="queue-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Report Queue</p>
+                <h2>신고 큐</h2>
+              </div>
+              <div class="filters">
+                <select id="reasonFilter" aria-label="신고 사유 필터">
+                  <option value="all">전체 사유</option>
+                  <option value="욕설">욕설</option>
+                  <option value="스팸">스팸</option>
+                  <option value="어뷰징">어뷰징</option>
+                </select>
+                <input id="searchInput" type="search" placeholder="플레이어, 신고 ID 검색" />
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>신고 ID</th>
+                    <th>신고 대상 플레이어</th>
+                    <th>신고 사유</th>
+                    <th>게임/모드</th>
+                    <th>AI 위험도</th>
+                    <th>신고 횟수</th>
+                    <th>상태</th>
+                    <th>담당자</th>
+                  </tr>
+                </thead>
+                <tbody id="reportRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="detail-panel" id="detailPanel" aria-label="신고 상세"></aside>
+        </section>
+      </section>
+    </main>
+    <script>
+const loginAccount = {
+  id: 'admin01',
+  password: 'admin1234',
+};
+
+const reports = [
+  {
+    id: 'RPT-20260716-001',
+    targetPlayer: 'DarkRush77',
+    reporter: 'LunaBlade',
+    reason: '욕설',
+    gameMode: 'Aether Arena / 랭크전',
+    aiRisk: '높음',
+    reportCount: 7,
+    status: '미처리',
+    manager: '관리자A',
+    severity: '심각',
+    categories: ['가족 비하', '반복 욕설', '팀원 모욕'],
+    logs: [
+      '14:02 DarkRush77: 너 때문에 졌잖아. 게임 접어라.',
+      '14:03 DarkRush77: 모욕성 표현을 반복 사용',
+      '14:04 LunaBlade: 신고합니다. 그만하세요.',
+    ],
+    history: ['2026-07-12 채팅 제한 1일', '2026-07-08 경고'],
+    evidence: ['채팅 로그 3건', '신고자 스크린샷 1장', '매치 ID #84920'],
+    suggestedAction: '채팅 제한 7일',
+  },
+  {
+    id: 'RPT-20260716-002',
+    targetPlayer: 'GoldFarmPro',
+    reporter: 'MintHealer',
+    reason: '스팸',
+    gameMode: 'World Chat / 전체 채팅',
+    aiRisk: '중간',
+    reportCount: 4,
+    status: '미처리',
+    manager: '관리자B',
+    severity: '주의',
+    categories: ['상업 홍보', '외부 링크', '반복 메시지'],
+    logs: [
+      '13:21 GoldFarmPro: 빠른 레벨업 대행 문의',
+      '13:22 GoldFarmPro: 동일 홍보 문구 3회 반복',
+      '13:23 GoldFarmPro: 외부 링크 공유',
+    ],
+    history: ['제재 이력 없음'],
+    evidence: ['채팅 로그 6건', '외부 링크 탐지 결과'],
+    suggestedAction: '경고',
+  },
+  {
+    id: 'RPT-20260716-003',
+    targetPlayer: 'QueueGhost',
+    reporter: 'BlueComet',
+    reason: '어뷰징',
+    gameMode: 'Battle Rush / 경쟁전',
+    aiRisk: '매우 높음',
+    reportCount: 12,
+    status: '미처리',
+    manager: '관리자A',
+    severity: '매우 심각',
+    categories: ['고의 패배', '반복 탈주', '매칭 악용'],
+    logs: [
+      '12:51 QueueGhost: 이번 판은 그냥 던질게',
+      '12:53 동일 파티 계정과 5회 연속 매칭',
+      '12:56 전투 참여 없이 리스폰 지역 대기',
+    ],
+    history: ['2026-07-10 게임 제한 3일', '2026-07-01 경고'],
+    evidence: ['게임 기록 2건', '매칭 로그', '전투 참여율 0%'],
+    suggestedAction: '게임 제한 15일',
+  },
+  {
+    id: 'RPT-20260715-014',
+    targetPlayer: 'MacroRunner',
+    reporter: 'IronToast',
+    reason: '어뷰징',
+    gameMode: 'Dungeon Raid / 이벤트 던전',
+    aiRisk: '매우 높음',
+    reportCount: 19,
+    status: '처리완료',
+    manager: '관리자C',
+    severity: '매우 심각',
+    categories: ['자동 입력', '비정상 반복 행동'],
+    logs: [
+      '19:20 0.7초 간격으로 동일 행동 반복',
+      '19:25 전투 상황 변화에도 입력 패턴 동일',
+      '19:31 이전 동일 유형 제재 3회 확인',
+    ],
+    history: ['2026-07-13 영구 정지'],
+    evidence: ['행동 로그 120건', '자동 입력 탐지 리포트'],
+    suggestedAction: '영구 정지',
+  },
+];
+
+const state = {
+  filter: 'all',
+  reason: 'all',
+  search: '',
+  selectedId: reports[0].id,
+};
+
+const riskClassMap = {
+  낮음: 'low',
+  중간: 'medium',
+  높음: 'high',
+  '매우 높음': 'critical',
+};
+
+function getFilteredReports() {
+  return reports.filter((report) => {
+    const matchesFilter =
+      state.filter === 'all' ||
+      (state.filter === 'pending' && report.status === '미처리') ||
+      (state.filter === 'completed' && report.status === '처리완료') ||
+      (state.filter === 'high' && ['높음', '매우 높음'].includes(report.aiRisk));
+    const matchesReason = state.reason === 'all' || report.reason === state.reason;
+    const keyword = `${report.id} ${report.targetPlayer} ${report.reporter}`.toLowerCase();
+    const matchesSearch = keyword.includes(state.search.toLowerCase());
+
+    return matchesFilter && matchesReason && matchesSearch;
+  });
+}
+
+function renderSummary() {
+  const todayReports = reports.filter((report) => report.id.includes('20260716'));
+  const pendingReports = reports.filter((report) => report.status === '미처리');
+  const highRiskReports = reports.filter((report) => ['높음', '매우 높음'].includes(report.aiRisk));
+  const completedReports = reports.filter((report) => report.status === '처리완료');
+
+  document.querySelector('#todayCount').textContent = todayReports.length;
+  document.querySelector('#pendingCount').textContent = pendingReports.length;
+  document.querySelector('#highRiskCount').textContent = highRiskReports.length;
+  document.querySelector('#avgTime').textContent = '18분';
+  document.querySelector('#sanctionRate').textContent = `${Math.round((completedReports.length / reports.length) * 100)}%`;
+}
+
+function renderQueue() {
+  const rows = getFilteredReports();
+  const tbody = document.querySelector('#reportRows');
+
+  tbody.innerHTML = rows.map((report) => `
+    <tr class="${report.id === state.selectedId ? 'selected' : ''}" data-report-id="${report.id}">
+      <td><strong>${report.id}</strong></td>
+      <td>${report.targetPlayer}</td>
+      <td>${report.reason}</td>
+      <td>${report.gameMode}</td>
+      <td><span class="badge ${riskClassMap[report.aiRisk]}">${report.aiRisk}</span></td>
+      <td>${report.reportCount}회</td>
+      <td><span class="badge ${report.status === '미처리' ? 'pending' : 'completed'}">${report.status}</span></td>
+      <td>${report.manager}</td>
+    </tr>
+  `).join('');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8">조건에 맞는 신고가 없습니다.</td></tr>';
+  }
+}
+
+function renderDetail() {
+  const report = reports.find((item) => item.id === state.selectedId) || getFilteredReports()[0] || reports[0];
+  state.selectedId = report.id;
+
+  document.querySelector('#detailPanel').innerHTML = `
+    <p class="eyebrow">신고 상세</p>
+    <h2>${report.targetPlayer}</h2>
+    <p class="muted">${report.id} · ${report.gameMode}</p>
+
+    <section class="detail-section">
+      <h3>채팅 로그 / 게임 기록</h3>
+      <ul class="log-list">${report.logs.map((log) => `<li>${log}</li>`).join('')}</ul>
+    </section>
+
+    <section class="detail-section">
+      <h3>신고자·피신고자 정보</h3>
+      <div class="info-grid">
+        <div><span>신고자</span><strong>${report.reporter}</strong></div>
+        <div><span>피신고자</span><strong>${report.targetPlayer}</strong></div>
+        <div><span>담당자</span><strong>${report.manager}</strong></div>
+        <div><span>신고 횟수</span><strong>${report.reportCount}회</strong></div>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h3>과거 제재 이력</h3>
+      <ul class="history-list">${report.history.map((item) => `<li>${item}</li>`).join('')}</ul>
+    </section>
+
+    <section class="detail-section">
+      <h3>유해발언 카테고리 / 심각도</h3>
+      <div class="info-grid">
+        <div><span>카테고리</span><strong>${report.categories.join(', ')}</strong></div>
+        <div><span>심각도</span><strong>${report.severity}</strong></div>
+        <div><span>AI 위험도</span><strong>${report.aiRisk}</strong></div>
+        <div><span>추천 조치</span><strong>${report.suggestedAction}</strong></div>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h3>증거 자료</h3>
+      <ul class="evidence-list">${report.evidence.map((item) => `<li>${item}</li>`).join('')}</ul>
+    </section>
+
+    <section class="detail-section">
+      <h3>제재 처리</h3>
+      <div class="action-grid">
+        <button type="button" data-action="경고">경고</button>
+        <button type="button" data-action="채팅 제한">채팅 제한</button>
+        <button type="button" data-action="게임 제한">게임 제한</button>
+        <button class="danger" type="button" data-action="영구 정지">영구 정지</button>
+      </div>
+    </section>
+  `;
+}
+
+function render() {
+  renderSummary();
+  renderQueue();
+  renderDetail();
+}
+
+document.querySelector('#loginForm').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const adminId = String(form.get('adminId') || '');
+  const password = String(form.get('password') || '');
+
+  if (adminId !== loginAccount.id || password !== loginAccount.password) {
+    document.querySelector('#loginError').textContent = '운영자 ID 또는 비밀번호가 올바르지 않습니다.';
+    return;
+  }
+
+  document.querySelector('#loginScreen').hidden = true;
+  document.querySelector('#dashboard').hidden = false;
+  render();
+});
+
+document.querySelectorAll('nav button').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((item) => item.classList.remove('active'));
+    button.classList.add('active');
+    state.filter = button.dataset.filter;
+    state.selectedId = getFilteredReports()[0]?.id || reports[0].id;
+    render();
+  });
+});
+
+document.querySelector('#reasonFilter').addEventListener('change', (event) => {
+  state.reason = event.target.value;
+  state.selectedId = getFilteredReports()[0]?.id || reports[0].id;
+  render();
+});
+
+document.querySelector('#searchInput').addEventListener('input', (event) => {
+  state.search = event.target.value;
+  state.selectedId = getFilteredReports()[0]?.id || reports[0].id;
+  render();
+});
+
+document.querySelector('#reportRows').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-report-id]');
+  if (!row) return;
+  state.selectedId = row.dataset.reportId;
+  render();
+});
+
+document.querySelector('#detailPanel').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const report = reports.find((item) => item.id === state.selectedId);
+  if (!report) return;
+  report.status = '처리완료';
+  report.suggestedAction = button.dataset.action;
+  render();
+});
+
+    </script>
+  </body>
 </html>
