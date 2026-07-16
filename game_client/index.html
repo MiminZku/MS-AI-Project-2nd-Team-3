@@ -114,7 +114,7 @@
     <div class="chat-input-area">
       <div class="chat-row">
         <input class="chat-input" type="text" id="chatInput" placeholder="메시지 입력..."/>
-        <button class="btn btn-send" onclick="sendMsg()">전송</button>
+        <button class="btn btn-send" id="sendBtn" onclick="sendMsg()">전송</button>
       </div>
       <button class="btn btn-report" onclick="openReport('chat')">⚑ &nbsp;채팅 신고</button>
     </div>
@@ -164,6 +164,18 @@
     <div class="ready-icon" id="readyIcon">🤖</div>
     <div class="ready-title" id="readyTitle">AI 모드</div>
     <div class="ready-desc" id="readyDesc">준비되셨으면 게임 시작을 눌러주세요</div>
+    <div class="ready-player-list" id="readyPlayerList">
+      <div class="ready-player-row">
+        <span class="ready-player-dot self"></span>
+        <span class="ready-player-name" id="readySelfName">나</span>
+        <span class="ready-player-status connected">접속 중</span>
+      </div>
+      <div class="ready-player-row" id="readyOpponentRow">
+        <span class="ready-player-dot opponent"></span>
+        <span class="ready-player-name" id="readyOpponentName">상대 플레이어 대기 중</span>
+        <span class="ready-player-status" id="readyOpponentStatus">대기 중</span>
+      </div>
+    </div>
 
     <div class="consent-block">
       <div class="consent-notice">⚠️ &nbsp;아래 항목 중 하나라도 체크하면 게임 중 음성이 녹음됩니다. 녹음된 음성은 신고 접수 시 증거 자료로 조회될 수 있습니다.</div>
@@ -186,24 +198,8 @@
     <div class="login-field">
       <input type="text" id="loginId" placeholder="아이디" autocomplete="username">
     </div>
-    <div class="login-field">
-      <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
-    </div>
-    <div class="login-error" id="loginError" style="display:none">아이디와 비밀번호를 모두 입력해 주세요</div>
+    <div class="login-error" id="loginError" style="display:none">아이디를 입력해 주세요</div>
     <button class="go-btn" onclick="submitLogin()">로그인</button>
-  </div>
-</div>
-
-<!-- ── 닉네임 설정 화면 (로그인 다음) ── -->
-<div class="nickname-overlay" id="nicknameOverlay">
-  <div class="login-box">
-    <div class="login-logo">ARENA<span>.IO</span></div>
-    <div class="login-sub">게임에서 사용할 닉네임을 입력해 주세요</div>
-    <div class="login-field">
-      <input type="text" id="nicknameInput" placeholder="닉네임" maxlength="12">
-    </div>
-    <div class="login-error" id="nicknameError" style="display:none">닉네임을 입력해 주세요</div>
-    <button class="go-btn" onclick="submitNickname()">시작하기</button>
   </div>
 </div>
 
