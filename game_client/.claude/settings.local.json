@@ -14,7 +14,19 @@
       "Bash(tail -50 /tmp/server4.log 2>&1)",
       "Bash(curl -s -o /dev/null -w \"static:8080 -> %{http_code}\\\\n\" http://localhost:8080/index.html)",
       "Bash(curl -s -o /dev/null -w \"node:3000 -> %{http_code}\\\\n\" http://localhost:3000/report-audio?user=x)",
-      "PowerShell(Get-NetFirewallRule -Direction Inbound -Enabled True | Where-Object { $_.DisplayName -match \"Node|Python|8080|3000\" } | Select-Object DisplayName, Action | Format-Table -AutoSize)"
+      "PowerShell(Get-NetFirewallRule -Direction Inbound -Enabled True | Where-Object { $_.DisplayName -match \"Node|Python|8080|3000\" } | Select-Object DisplayName, Action | Format-Table -AutoSize)",
+      "Bash(curl -s http://localhost:8080/js/ui.js)",
+      "Bash(taskkill //F //PID 21668)",
+      "Bash(curl -s http://localhost:8080/index.html)",
+      "Bash(wmic process *)",
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter \\\\\"ProcessId=19708\\\\\" | Select-Object ProcessId,CommandLine\")",
+      "PowerShell(Get-Process -Id 19708)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=19708\")",
+      "Bash(curl -s http://localhost:8091/index.html)",
+      "Bash(taskkill //F //PID 25628)",
+      "Bash(taskkill //F //PID 26164)",
+      "Bash(node server.js)",
+      "Bash(taskkill //F //PID 6384)"
     ]
   }
 }
