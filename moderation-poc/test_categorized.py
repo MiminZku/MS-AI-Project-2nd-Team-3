@@ -151,7 +151,10 @@ def load_categorized(path: str):
     return samples
 
 if __name__ == "__main__":
-    samples = load_categorized("game_chat_categorized_FINAL.txt")
+    # 스크립트 파일이 있는 디렉토리를 기준으로 절대 경로를 설정합니다.
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = os.path.join(current_dir, "game_chat_categorized_FINAL.txt")
+    samples = load_categorized(data_path)
 
     binary_correct = 0     # 욕설/정상 이진 정답 개수
     category_correct = 0   # 카테고리(욕설강도/음란성발언/패드립/폭력성) 일치 개수

@@ -94,8 +94,10 @@ def load_sample(path: str, n: int = 30):
     return samples
 
 if __name__ == "__main__":
-    # 실제 파일 경로는 본인 환경에 맞게 수정하세요
-    samples = load_sample("curse_detection_data.txt", n=30)
+    # 스크립트 파일이 있는 디렉토리를 기준으로 절대 경로를 설정합니다.
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = os.path.join(current_dir, "curse_detection_data.txt")
+    samples = load_sample(data_path, n=30)
 
     correct = 0          # 5단계 그대로 맞춘 개수 (Lv.0~4 정확히 일치)
     binary_correct = 0   # 이진 변환 후 맞춘 개수 (욕설이냐/아니냐만 비교, 원본 데이터 라벨 방식과 동일)
