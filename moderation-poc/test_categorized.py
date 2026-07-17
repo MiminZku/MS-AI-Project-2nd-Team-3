@@ -16,8 +16,8 @@ client = AzureOpenAI(
     api_key=os.environ["AZURE_OPENAI_KEY"],
     api_version="2025-04-01-preview",
 )
-
-DEPLOYMENT_NAME = "gpt-5-mini"
+# Foundry 배포 화면에서 확인한 실제 "배포 이름" (환경변수가 있으면 사용하고 기본값은 gpt-5-mini로 유지)
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5-mini")
 
 # 팀 정책 문서 v2("게임 채팅 유해발언 분류 정책 업데이트") 기준 프롬프트
 # v1 대비 추가된 것: 역할 구분(유해발언 사용자/저지 이용자/욕설 대상), 보조 태그, 긴급 플래그
@@ -106,14 +106,20 @@ SYSTEM_PROMPT = """당신은 게임 채팅 유해발언 심사역입니다. 아�
 """
 
 def classify(text: str) -> dict:
-    response = client.responses.create(
-        model=DEPLOYMENT_NAME,
-        instructions=SYSTEM_PROMPT,
-        input=text,
-        max_output_tokens=2000,          # 내부 사고+최종답 합쳐서 쓸 수 있는 토큰 여유를 늘림 (빈 응답 방지)
-        reasoning={"effort": "low"},     # 내부 사고 단계를 줄여서, 최종 답에 토큰을 더 남겨둠
-    )
-    raw = response.output_text.strip()
+    kwargs = {
+        "model": DEPLOYMENT_NAME,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text}
+        ],
+        "max_tokens": 2000,
+    }
+    # o1, o3 등 reasoning 계열 모델(혹은 프로젝트 헌법상의 gpt-5-mini)일 때만 reasoning_effort 적용
+    if any(k in DEPLOYMENT_NAME.lower() for k in ["o1", "o3", "gpt-5"]):
+        kwargs["reasoning_effort"] = "low"
+
+    response = client.chat.completions.create(**kwargs)
+    raw = response.choices[0].message.content.strip()
     if not raw:
         raise ValueError("empty_response")  # 빈 응답을 명확한 예외로 구분해서 던짐
     if raw.startswith("```"):
@@ -159,18 +165,18 @@ if __name__ == "__main__":
             result = classify_with_retry(text)
         except json.JSONDecodeError:
             hitl_queue.append((text, "재시도 후에도 빈 응답/파싱 실패"))
-            print(f"[HITL 전달] {text[:20]}... | 사유: 재시도 후에도 빈 응답/파싱 실패 → 관리자 검토 큐로 전송")
+            print(f"[HITL 전달] {text[:20]}... | 사유: 재시도 후에도 빈 응답/파싱 실패 -> 관리자 검토 큐로 전송")
             continue
         except ValueError:
             hitl_queue.append((text, "재시도 후에도 빈 응답"))
-            print(f"[HITL 전달] {text[:20]}... | 사유: 재시도 후에도 빈 응답 → 관리자 검토 큐로 전송")
+            print(f"[HITL 전달] {text[:20]}... | 사유: 재시도 후에도 빈 응답 -> 관리자 검토 큐로 전송")
             continue
         except BadRequestError as e:
             # Azure 콘텐츠 필터가 요청 자체를 차단한 경우 - AI조차 판단을 거부할 정도로 심각하다는 신호이므로,
             # 실제 서비스라면 이 자체를 "최상급 의심" 케이스로 보고 즉시 관리자에게 넘기는 게 맞는 설계
             reason = e.body.get('error', {}).get('code', '알수없음') if hasattr(e, 'body') else str(e)[:50]
             hitl_queue.append((text, f"콘텐츠 필터 차단({reason})"))
-            print(f"[HITL 전달] {text[:20]}... | 사유: 콘텐츠 필터 차단({reason}) → 관리자 검토 큐로 전송")
+            print(f"[HITL 전달] {text[:20]}... | 사유: 콘텐츠 필터 차단({reason}) -> 관리자 검토 큐로 전송")
             continue
 
         final_level = int(result["final_level"])
@@ -218,8 +224,8 @@ if __name__ == "__main__":
             if abs(final_level - int(gold_level)) <= 1:
                 level_close += 1
 
-        urgent_marker = f" 🚨긴급:{urgent}" if urgent else ""
-        aux_marker = f" 🏷️{aux_tags}" if aux_tags else ""
+        urgent_marker = f" [긴급]:{urgent}" if urgent else ""
+        aux_marker = f" [태그]:{aux_tags}" if aux_tags else ""
         print(f"문장: {text[:18]}... | 정답(카테고리/단계):{gold_category}/{gold_level} | "
               f"예측(카테고리/단계):{predicted_category}/{final_level} | 세부:{cats}{urgent_marker}{aux_marker}")
 
