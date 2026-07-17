@@ -83,10 +83,7 @@
     .field-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
     .field-value { font-size: 14px; color: var(--text); line-height: 1.5; }
     .sheet-content { border: 1px solid var(--border); background: var(--panel-2); padding: 10px; border-radius: 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
-    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
-    .pill-btn, .status-pill { border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2); color: var(--text); padding: 8px 10px; cursor: pointer; font-weight: 700; font-size: 12px; }
-    .pill-btn.active, .status-pill.active { background: linear-gradient(135deg, var(--accent), #8b7bff); border-color: transparent; color: white; }
-    .receipt-sheet select, .receipt-sheet textarea { width: 100%; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+    .receipt-sheet select, .receipt-sheet input, .receipt-sheet textarea { width: 100%; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 14px; }
     .receipt-sheet textarea { min-height: 90px; resize: vertical; }
     .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
     .btn { border: 0; border-radius: 10px; padding: 9px 12px; cursor: pointer; font-weight: 700; }
@@ -153,7 +150,7 @@
           <input id="reportSearch" type="text" placeholder="신고자/피신고자 ID 검색" />
         </div>
         <table>
-          <thead><tr><th>신고번호</th><th>신고 일시</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th><th>작업</th></tr></thead>
+          <thead><tr><th>신고번호</th><th>신고 일시</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead>
           <tbody id="reportBody"></tbody>
         </table>
       </div>
@@ -226,16 +223,15 @@
       </div>
       <div class="field-row">
         <div class="field-label">제재 유형</div>
-        <div class="pill-row" id="sanctionPillRow">
-          <button class="pill-btn active" type="button" data-type="MUTE">채팅 금지</button>
-          <button class="pill-btn" type="button" data-type="BAN">계정 정지</button>
-          <button class="pill-btn" type="button" data-type="DISMISS">신고 취소</button>
-        </div>
         <select id="sheetSanctionType">
           <option value="MUTE">채팅 금지</option>
           <option value="BAN">계정 정지</option>
           <option value="DISMISS">신고 취소</option>
         </select>
+      </div>
+      <div class="field-row">
+        <div class="field-label">제재 기간</div>
+        <input id="sheetDurationDays" type="number" min="1" value="7" />
       </div>
       <div class="field-row">
         <div class="field-label">처리 사유</div>
@@ -249,72 +245,22 @@
   </div>
 
   <script>
-    // 웹 백엔드(_backend/webbackend.py) 주소 — 로컬 데모용 (game_client/js/admin.js와 동일 규약)
-    const API_BASE = 'http://localhost:8001';
-    const CURRENT_ADMIN = 'admin01';
-
-    let reports = [];
-    let sanctions = [];
-    let appeals = [];
+    const reports = [
+      { id: 101, created_at: '2026-07-16 14:10', reporter_id: 'user_01', reported_id: 'user_02', status: 'PENDING', result: '대기', content: '욕설/비하 발언', reported_message: '병신아 니가 비켜', review_reason: '' },
+      { id: 102, created_at: '2026-07-16 12:40', reporter_id: 'user_03', reported_id: 'user_04', status: 'MANUAL_REVIEW_REQUIRED', result: '수동 검토 필요', content: '매크로 사용 의심 패턴 로그 첨부', reported_message: '안녕하세요', review_reason: '' },
+      { id: 103, created_at: '2026-07-16 09:20', reporter_id: 'user_05', reported_id: 'user_06', status: 'COMPLETED', result: '제재 처리 완료', content: '반복적 욕설 및 비하 발언', reported_message: '계속 그렇게 하면 가만 안 둔다', review_reason: '반복적 욕설' },
+      { id: 104, created_at: '2026-07-15 22:10', reporter_id: 'user_07', reported_id: 'user_02', status: 'DISMISSED', result: '신고 취소', content: '오해로 확인된 단순 발언', reported_message: '다음 판 같이 하실래요?', review_reason: '허위 신고로 확인됨' }
+    ];
+    const sanctions = [
+      { id: 1, created_at: '2026-07-16 10:00', user_id: 'user_02', ai_result: '욕설 3단계', type: 'MUTE', duration_days: 7 },
+      { id: 2, created_at: '2026-07-15 18:05', user_id: 'user_04', ai_result: '매크로 사용 의심', type: 'BAN', duration_days: 30 }
+    ];
+    const appeals = [
+      { id: 1, report_id: 101, user_id: 'user_02', reason: '허위 신고로 판단됨', status: 'PENDING' },
+      { id: 2, report_id: 104, user_id: 'user_07', reason: '신고 사유가 불충분함', status: 'REJECTED' }
+    ];
     let activeReportId = null;
     let activeSanctionType = 'MUTE';
-    let loadTimer = null;
-
-    const REPORT_RESULT_LABEL = { PENDING: '대기', MANUAL_REVIEW_REQUIRED: '수동 검토 필요', COMPLETED: '제재 처리 완료', DISMISSED: '신고 취소' };
-
-    function fmtDateTime(value) {
-      if (!value) return '-';
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return String(value);
-      const pad = n => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-    function mapReport(row) {
-      return {
-        id: row.id,
-        created_at: fmtDateTime(row.created_at),
-        reporter_id: row.reporter_id,
-        reported_id: row.reported_id,
-        status: row.status,
-        result: REPORT_RESULT_LABEL[row.status] || row.status,
-        content: row.content_text || row.content_path || '',
-      };
-    }
-    function mapSanction(row) {
-      return {
-        id: row.id,
-        created_at: fmtDateTime(row.created_at),
-        user_id: row.user_id,
-        ai_result: row.ai_result || '',
-        type: row.type,
-        duration_days: row.duration_days,
-      };
-    }
-    function mapAppeal(row) {
-      return { id: row.id, report_id: row.report_id, user_id: row.user_id, reason: row.reason, status: row.status };
-    }
-
-    /* ── 실 API에서 신고/제재/이의신청 전체 목록을 불러온다 ── */
-    async function loadAll() {
-      try {
-        const [reportRes, sanctionRes, appealRes] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/reports`),
-          fetch(`${API_BASE}/api/admin/sanctions`),
-          fetch(`${API_BASE}/api/admin/appeals`),
-        ]);
-        if (!reportRes.ok || !sanctionRes.ok || !appealRes.ok) throw new Error('API 응답 오류');
-        reports = (await reportRes.json()).map(mapReport);
-        sanctions = (await sanctionRes.json()).map(mapSanction);
-        appeals = (await appealRes.json()).map(mapAppeal);
-      } catch (err) {
-        console.error('대시보드 로드 실패 — 웹 백엔드(localhost:8001) 연결을 확인하세요.', err);
-        showToast('서버 연결에 실패했습니다. 웹 백엔드(8001) 상태를 확인해주세요.');
-      }
-      updateSummary();
-      renderReports();
-      renderSanctions();
-      renderAppeals();
-    }
 
     function escapeHtml(value) {
       return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -330,7 +276,7 @@
       const report = reports.find(r => ['PENDING', 'MANUAL_REVIEW_REQUIRED'].includes(r.status));
       if (!report) return;
       document.getElementById('alertMeta').textContent = `#${report.id} · ${report.reporter_id} → ${report.reported_id}`;
-      document.getElementById('alertContent').textContent = report.content;
+      document.getElementById('alertContent').textContent = report.reported_message || report.content;
       document.getElementById('alertPanel').style.display = 'block';
       document.getElementById('alertReview').onclick = () => openReviewSheet(report.id);
       document.getElementById('alertDismiss').onclick = () => document.getElementById('alertPanel').style.display = 'none';
@@ -341,20 +287,20 @@
       const rows = reports.filter(r => (status === 'all' || r.status === status) && (!query || `${r.reporter_id} ${r.reported_id} ${r.result}`.toLowerCase().includes(query)));
       document.getElementById('reportBody').innerHTML = rows.map(r => {
         const badgeClass = r.status === 'PENDING' ? 'pending' : r.status === 'MANUAL_REVIEW_REQUIRED' ? 'review' : r.status === 'COMPLETED' ? 'done' : 'dismiss';
-        return `<tr><td>#${r.id}</td><td>${r.created_at}</td><td>${escapeHtml(r.reporter_id)}</td><td>${escapeHtml(r.reported_id)}</td><td><button class="status-btn badge ${badgeClass}" type="button" onclick="openReviewSheet(${r.id})">${r.result}</button></td><td><button class="btn small" type="button" onclick="openReviewSheet(${r.id})">상세</button></td></tr>`;
+        return `<tr><td>#${r.id}</td><td>${r.created_at}</td><td>${r.reporter_id}</td><td>${r.reported_id}</td><td><button class="status-btn badge ${badgeClass}" type="button" onclick="openReviewSheet(${r.id})">${r.result}</button></td></tr>`;
       }).join('');
     }
     function renderSanctions() {
       const type = document.getElementById('sanctionTypeFilter').value;
       const query = document.getElementById('sanctionSearch').value.trim().toLowerCase();
       const rows = sanctions.filter(s => (type === 'all' || s.type === type) && (!query || `${s.user_id} ${s.ai_result}`.toLowerCase().includes(query)));
-      document.getElementById('sanctionBody').innerHTML = rows.map(s => `<tr><td>#${s.id}</td><td>${s.created_at}</td><td>${escapeHtml(s.user_id)}</td><td>${escapeHtml(s.ai_result)}</td><td><span class="badge ${s.type === 'MUTE' ? 'mute' : 'ban'}">${s.type === 'MUTE' ? '채팅 금지' : '계정 정지'}</span></td><td>${s.duration_days}일</td></tr>`).join('');
+      document.getElementById('sanctionBody').innerHTML = rows.map(s => `<tr><td>#${s.id}</td><td>${s.created_at}</td><td>${s.user_id}</td><td>${s.ai_result}</td><td><span class="badge ${s.type === 'MUTE' ? 'mute' : 'ban'}">${s.type === 'MUTE' ? '채팅 금지' : '계정 정지'}</span></td><td>${s.duration_days}일</td></tr>`).join('');
     }
     function renderAppeals() {
       const status = document.getElementById('appealStatusFilter').value;
       const query = document.getElementById('appealSearch').value.trim().toLowerCase();
       const rows = appeals.filter(a => (status === 'all' || a.status === status) && (!query || `${a.user_id} ${a.reason}`.toLowerCase().includes(query)));
-      document.getElementById('appealBody').innerHTML = rows.map(a => `<tr><td>#${a.id}</td><td>#${a.report_id}</td><td>${escapeHtml(a.user_id)}</td><td>${escapeHtml(a.reason)}</td><td><span class="badge ${a.status === 'APPROVED' ? 'approve' : a.status === 'REJECTED' ? 'reject' : 'pending'}">${a.status === 'APPROVED' ? '인용' : a.status === 'REJECTED' ? '기각' : '대기'}</span></td></tr>`).join('');
+      document.getElementById('appealBody').innerHTML = rows.map(a => `<tr><td>#${a.id}</td><td>#${a.report_id}</td><td>${a.user_id}</td><td>${a.reason}</td><td><span class="badge ${a.status === 'APPROVED' ? 'approve' : a.status === 'REJECTED' ? 'reject' : 'pending'}">${a.status === 'APPROVED' ? '인용' : a.status === 'REJECTED' ? '기각' : '대기'}</span></td></tr>`).join('');
     }
     function updateSummary() {
       document.getElementById('statToday').textContent = reports.length;
@@ -362,72 +308,56 @@
       document.getElementById('statDone').textContent = reports.filter(r => r.status === 'COMPLETED' || r.status === 'DISMISSED').length;
       document.getElementById('statSanction').textContent = sanctions.length;
     }
+    function populateReportTime(report) {
+      document.getElementById('sheetReportTime').textContent = report ? report.created_at : '';
+    }
     function setSanctionPills(type) {
       activeSanctionType = type;
-      document.querySelectorAll('.pill-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.type === type));
       document.getElementById('sheetSanctionType').value = type;
+      document.getElementById('sheetDurationDays').value = type === 'BAN' ? 30 : 7;
     }
-    // 신고 사유 분류 pill(MUTE/BAN/DISMISS)이 그대로 실제 백엔드 액션(제재 적용/신고 취소)에 대응된다.
-    const SANCTION_TYPE_MAP = { MUTE: 'mute_7d', BAN: 'ban_perm' };
     function openReviewSheet(reportId) {
       activeReportId = reportId;
       const report = reports.find(r => r.id === reportId);
       if (!report) return;
-      const closed = report.status === 'COMPLETED' || report.status === 'DISMISSED';
       activeSanctionType = 'MUTE';
       document.getElementById('sheetHead').textContent = `신고 접수 #${report.id}`;
-      document.getElementById('sheetSub').textContent = `${report.reporter_id} → ${report.reported_id} · ${report.result}`;
+      document.getElementById('sheetSub').textContent = `${report.reporter_id} → ${report.reported_id}`;
       document.getElementById('sheetUsers').textContent = `${report.reporter_id} / ${report.reported_id}`;
-      document.getElementById('sheetContent').textContent = report.content;
-      document.getElementById('sheetReportTime').textContent = report.created_at;
-      document.getElementById('sheetReason').value = '';
-      document.getElementById('sheetReason').placeholder = closed ? '이미 처리된 신고입니다.' : '예: 반복적 욕설, 허위 신고로 확인됨';
+      document.getElementById('sheetContent').textContent = report.reported_message || report.content;
+      document.getElementById('sheetDurationDays').value = activeSanctionType === 'BAN' ? 30 : 7;
+      document.getElementById('sheetReason').value = report.review_reason || '';
+      populateReportTime(report);
       setSanctionPills('MUTE');
-      document.getElementById('sanctionPillRow').style.display = closed ? 'none' : '';
-      document.getElementById('sheetSanctionType').style.display = closed ? 'none' : '';
-      document.getElementById('sheetReason').disabled = closed;
-      document.getElementById('sheetApply').style.display = closed ? 'none' : '';
       document.getElementById('sheetOverlay').style.display = 'flex';
     }
     function closeReviewSheet() {
       document.getElementById('sheetOverlay').style.display = 'none';
       activeReportId = null;
     }
-    async function applyDecision() {
+    function applyDecision() {
       const report = reports.find(r => r.id === activeReportId);
       if (!report) return;
       const reason = document.getElementById('sheetReason').value.trim();
       const sanctionType = activeSanctionType;
-      if (sanctionType === 'DISMISS' && !reason) {
-        document.getElementById('sheetReason').focus();
-        return;
-      }
-      try {
-        if (sanctionType === 'DISMISS') {
-          const res = await fetch(`${API_BASE}/api/admin/reports/${report.id}/dismiss`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason: reason || '사유 미기재', reviewer_id: CURRENT_ADMIN }),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        } else {
-          const res = await fetch(`${API_BASE}/api/admin/reports/${report.id}/sanction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sanction_type: SANCTION_TYPE_MAP[sanctionType], reason: reason || `${sanctionType === 'MUTE' ? '채팅 금지' : '계정 정지'} 처리`, reviewer_id: CURRENT_ADMIN }),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        }
-      } catch (err) {
-        console.error('처리 반영 실패', err);
-        showToast('서버 반영에 실패했습니다. 웹 백엔드 연결을 확인해주세요.');
-        return;
+      const durationDays = Number(document.getElementById('sheetDurationDays').value) || 7;
+      report.review_reason = reason || '검토 기록 없음';
+      if (sanctionType === 'DISMISS') {
+        report.status = 'DISMISSED';
+        report.result = '신고 취소';
+      } else {
+        report.status = 'COMPLETED';
+        report.result = '제재 처리 완료';
+        sanctions.unshift({ id: sanctions.length + 1, created_at: '2026-07-16 15:00', user_id: report.reported_id, ai_result: reason || '제재 자동 적용', type: sanctionType, duration_days: durationDays });
       }
       closeReviewSheet();
+      updateSummary();
+      renderReports();
+      renderSanctions();
+      renderAppeals();
       showToast(sanctionType === 'DISMISS' ? '신고를 취소 처리했습니다.' : '제재를 적용했습니다.');
-      await loadAll();
     }
-    document.getElementById('loginBtn').addEventListener('click', async () => {
+    document.getElementById('loginBtn').addEventListener('click', () => {
       const id = document.getElementById('loginId').value.trim();
       const pw = document.getElementById('loginPw').value.trim();
       const msg = document.getElementById('loginMsg');
@@ -435,10 +365,7 @@
         msg.textContent = '';
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboardWrap').style.display = 'block';
-        await loadAll();
         showPendingAlert();
-        clearInterval(loadTimer);
-        loadTimer = setInterval(loadAll, 30000);
       } else {
         msg.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
       }
@@ -457,13 +384,14 @@
     ['sanctionTypeFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderSanctions));
     ['appealStatusFilter', 'appealSearch'].forEach(id => document.getElementById(id).addEventListener('input', renderAppeals));
     ['appealStatusFilter'].forEach(id => document.getElementById(id).addEventListener('change', renderAppeals));
-    document.querySelectorAll('.pill-btn').forEach(btn => {
-      btn.addEventListener('click', () => setSanctionPills(btn.dataset.type));
-    });
     document.getElementById('sheetSanctionType').addEventListener('change', (event) => setSanctionPills(event.target.value));
     document.getElementById('sheetClose').addEventListener('click', closeReviewSheet);
     document.getElementById('sheetApply').addEventListener('click', applyDecision);
     document.getElementById('sheetOverlay').addEventListener('click', (event) => { if (event.target.id === 'sheetOverlay') closeReviewSheet(); });
+    updateSummary();
+    renderReports();
+    renderSanctions();
+    renderAppeals();
   </script>
 </body>
 </html>

@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>게임 CS 운영자 대시보드</title>
+    <style>
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --panel: #0f1c2f;
+  --panel-2: #13263d;
+  --border: #24374f;
+  --text: #f4f7ff;
+  --muted: #8e9bb1;
+  --blue: #6c63ff;
+  --green: #22c55e;
+  --yellow: #ffb020;
+  --red: #ff5b70;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #050b16 0%, #0b172b 100%);
+  color: var(--text);
+  font-family: "Segoe UI", Pretendard, Arial, sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(15, 28, 47, 0.96);
+  padding: 28px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--blue), #22c5e8);
+  color: #06101f;
+  font-weight: 900;
+}
+
+.eyebrow {
+  margin: 18px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+.muted,
+small {
+  color: var(--muted);
+}
+
+.login-card label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card input,
+.filters input,
+.filters select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 10px 12px;
+}
+
+.login-error {
+  min-height: 18px;
+  margin: 10px 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.primary {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--blue), #8b7bff);
+  color: white;
+  font-weight: 800;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  padding: 22px;
+  border-right: 1px solid var(--border);
+  background: rgba(7, 17, 31, 0.94);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.brand span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+nav button {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  padding: 0 12px;
+}
+
+nav button.active,
+nav button:hover {
+  background: var(--panel-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.content {
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(15, 28, 47, 0.95);
+}
+
+.topbar .eyebrow {
+  margin-top: 0;
+}
+
+.operator {
+  color: var(--muted);
+}
+
+.operator strong {
+  color: var(--text);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.summary-grid article,
+.queue-panel,
+.detail-panel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(15, 28, 47, 0.95);
+}
+
+.summary-grid article {
+  padding: 16px;
+}
+
+.summary-grid span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.summary-grid strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 26px;
+}
+
+.work-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.queue-panel {
+  overflow: hidden;
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-heading .eyebrow {
+  margin-top: 0;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+th {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover,
+tbody tr.selected {
+  background: rgba(108, 99, 255, 0.12);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.badge.low {
+  color: #b5ffd1;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.badge.medium {
+  color: #ffe0a3;
+  background: rgba(255, 176, 32, 0.16);
+}
+
+.badge.high,
+.badge.critical {
+  color: #ffb3bd;
+  background: rgba(255, 91, 112, 0.16);
+}
+
+.badge.pending {
+  color: #ffe0a3;
+  background: rgba(255, 176, 32, 0.16);
+}
+
+.badge.completed {
+  color: #b5ffd1;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.detail-panel {
+  position: sticky;
+  top: 16px;
+  padding: 18px;
+}
+
+.detail-section {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(19, 38, 61, 0.72);
+}
+
+.detail-section h3 {
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.info-grid div {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(7, 17, 31, 0.55);
+}
+
+.info-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.info-grid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.log-list,
+.history-list,
+.evidence-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.log-list li,
+.history-list li,
+.evidence-list li {
+  padding: 10px;
+  border-left: 3px solid var(--blue);
+  background: rgba(7, 17, 31, 0.55);
+  border-radius: 0 10px 10px 0;
+  line-height: 1.45;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.action-grid button {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.action-grid button.danger {
+  border-color: rgba(255, 91, 112, 0.55);
+  color: #ffb3bd;
+}
+
+@media (max-width: 1100px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav {
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+
+  .summary-grid,
+  .work-area {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-panel {
+    position: static;
+  }
+}
+
+    </style>
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <form class="login-card" id="loginForm">
+        <div class="logo">CS</div>
+        <p class="eyebrow">Operator Console</p>
+        <h1>운영자 로그인</h1>
+        <p class="muted">게임 채팅 신고 검토와 제재 처리를 위한 관리자 화면입니다.</p>
+
+        <label>
+          <span>운영자 ID</span>
+          <input name="adminId" value="admin01" autocomplete="username" required />
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input name="password" type="password" value="admin1234" autocomplete="current-password" required />
+        </label>
+
+        <p class="login-error" id="loginError" aria-live="polite"></p>
+        <button class="primary" type="submit">로그인</button>
+        <small>시연 계정: admin01 / admin1234</small>
+      </form>
+    </section>
+
+    <main class="dashboard" id="dashboard" hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="logo">CS</div>
+          <div>
+            <strong>GameGuard Desk</strong>
+            <span>신고 제재 운영 콘솔</span>
+          </div>
+        </div>
+
+        <nav>
+          <button class="active" type="button" data-filter="all">신고 큐</button>
+          <button type="button" data-filter="pending">미처리 신고</button>
+          <button type="button" data-filter="high">고위험 신고</button>
+          <button type="button" data-filter="completed">처리 완료</button>
+        </nav>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Real-time Moderation</p>
+            <h1>운영자 대시보드</h1>
+          </div>
+          <div class="operator">담당자 <strong>관리자A</strong></div>
+        </header>
+
+        <section class="summary-grid" aria-label="신고 현황 요약">
+          <article><span>오늘 신규 신고</span><strong id="todayCount">0</strong></article>
+          <article><span>미처리 신고</span><strong id="pendingCount">0</strong></article>
+          <article><span>고위험 신고</span><strong id="highRiskCount">0</strong></article>
+          <article><span>평균 처리 시간</span><strong id="avgTime">0분</strong></article>
+          <article><span>제재율</span><strong id="sanctionRate">0%</strong></article>
+        </section>
+
+        <section class="work-area">
+          <section class="queue-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Report Queue</p>
+                <h2>신고 큐</h2>
+              </div>
+              <div class="filters">
+                <select id="reasonFilter" aria-label="신고 사유 필터">
+                  <option value="all">전체 사유</option>
+                  <option value="욕설">욕설</option>
+                  <option value="스팸">스팸</option>
+                  <option value="어뷰징">어뷰징</option>
+                </select>
+                <input id="searchInput" type="search" placeholder="플레이어, 신고 ID 검색" />
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>신고 ID</th>
+                    <th>신고 대상 플레이어</th>
+                    <th>신고 사유</th>
+                    <th>게임/모드</th>
+                    <th>AI 위험도</th>
+                    <th>신고 횟수</th>
+                    <th>상태</th>
+                    <th>담당자</th>
+                  </tr>
+                </thead>
+                <tbody id="reportRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="detail-panel" id="detailPanel" aria-label="신고 상세"></aside>
+        </section>
+      </section>
+    </main>
+    <script>
+const loginAccount = {
+  id: 'admin01',
+  password: 'admin1234',
+};
+
+const reports = [
+  {
+    id: 'RPT-20260716-001',
+    targetPlayer: 'DarkRush77',
+    reporter: 'LunaBlade',
+    reason: '욕설',
+    gameMode: 'Aether Arena / 랭크전',
+    aiRisk: '높음',
+    reportCount: 7,
+    status: '미처리',
+    manager: '관리자A',
+    severity: '심각',
+    categories: ['가족 비하', '반복 욕설', '팀원 모욕'],
+    logs: [
+      '14:02 DarkRush77: 너 때문에 졌잖아. 게임 접어라.',
+      '14:03 DarkRush77: 모욕성 표현을 반복 사용',
+      '14:04 LunaBlade: 신고합니다. 그만하세요.',
+    ],
+    history: ['2026-07-12 채팅 제한 1일', '2026-07-08 경고'],
+    evidence: ['채팅 로그 3건', '신고자 스크린샷 1장', '매치 ID #84920'],
+    suggestedAction: '채팅 제한 7일',
+  },
+  {
+    id: 'RPT-20260716-002',
+    targetPlayer: 'GoldFarmPro',
+    reporter: 'MintHealer',
+    reason: '스팸',
+    gameMode: 'World Chat / 전체 채팅',
+    aiRisk: '중간',
+    reportCount: 4,
+    status: '미처리',
+    manager: '관리자B',
+    severity: '주의',
+    categories: ['상업 홍보', '외부 링크', '반복 메시지'],
+    logs: [
+      '13:21 GoldFarmPro: 빠른 레벨업 대행 문의',
+      '13:22 GoldFarmPro: 동일 홍보 문구 3회 반복',
+      '13:23 GoldFarmPro: 외부 링크 공유',
+    ],
+    history: ['제재 이력 없음'],
+    evidence: ['채팅 로그 6건', '외부 링크 탐지 결과'],
+    suggestedAction: '경고',
+  },
+  {
+    id: 'RPT-20260716-003',
+    targetPlayer: 'QueueGhost',
+    reporter: 'BlueComet',
+    reason: '어뷰징',
+    gameMode: 'Battle Rush / 경쟁전',
+    aiRisk: '매우 높음',
+    reportCount: 12,
+    status: '미처리',
+    manager: '관리자A',
+    severity: '매우 심각',
+    categories: ['고의 패배', '반복 탈주', '매칭 악용'],
+    logs: [
+      '12:51 QueueGhost: 이번 판은 그냥 던질게',
+      '12:53 동일 파티 계정과 5회 연속 매칭',
+      '12:56 전투 참여 없이 리스폰 지역 대기',
+    ],
+    history: ['2026-07-10 게임 제한 3일', '2026-07-01 경고'],
+    evidence: ['게임 기록 2건', '매칭 로그', '전투 참여율 0%'],
+    suggestedAction: '게임 제한 15일',
+  },
+  {
+    id: 'RPT-20260715-014',
+    targetPlayer: 'MacroRunner',
+    reporter: 'IronToast',
+    reason: '어뷰징',
+    gameMode: 'Dungeon Raid / 이벤트 던전',
+    aiRisk: '매우 높음',
+    reportCount: 19,
+    status: '처리완료',
+    manager: '관리자C',
+    severity: '매우 심각',
+    categories: ['자동 입력', '비정상 반복 행동'],
+    logs: [
+      '19:20 0.7초 간격으로 동일 행동 반복',
+      '19:25 전투 상황 변화에도 입력 패턴 동일',
+      '19:31 이전 동일 유형 제재 3회 확인',
+    ],
+    history: ['2026-07-13 영구 정지'],
+    evidence: ['행동 로그 120건', '자동 입력 탐지 리포트'],
+    suggestedAction: '영구 정지',
+  },
+];
+
+const state = {
+  filter: 'all',
+  reason: 'all',
+  search: '',
+  selectedId: reports[0].id,
+};
+
+const riskClassMap = {
+  낮음: 'low',
+  중간: 'medium',
+  높음: 'high',
+  '매우 높음': 'critical',
+};
+
+function getFilteredReports() {
+  return reports.filter((report) => {
+    const matchesFilter =
+      state.filter === 'all' ||
+      (state.filter === 'pending' && report.status === '미처리') ||
+      (state.filter === 'completed' && report.status === '처리완료') ||
+      (state.filter === 'high' && ['높음', '매우 높음'].includes(report.aiRisk));
+    const matchesReason = state.reason === 'all' || report.reason === state.reason;
+    const keyword = `${report.id} ${report.targetPlayer} ${report.reporter}`.toLowerCase();
+    const matchesSearch = keyword.includes(state.search.toLowerCase());
+
+    return matchesFilter && matchesReason && matchesSearch;
+  });
+}
+
+function renderSummary() {
+  const todayReports = reports.filter((report) => report.id.includes('20260716'));
+  const pendingReports = reports.filter((report) => report.status === '미처리');
+  const highRiskReports = reports.filter((report) => ['높음', '매우 높음'].includes(report.aiRisk));
+  const completedReports = reports.filter((report) => report.status === '처리완료');
+
+  document.querySelector('#todayCount').textContent = todayReports.length;
+  document.querySelector('#pendingCount').textContent = pendingReports.length;
+  document.querySelector('#highRiskCount').textContent = highRiskReports.length;
+  document.querySelector('#avgTime').textContent = '18분';
+  document.querySelector('#sanctionRate').textContent = `${Math.round((completedReports.length / reports.length) * 100)}%`;
+}
+
+function renderQueue() {
+  const rows = getFilteredReports();
+  const tbody = document.querySelector('#reportRows');
+
+  tbody.innerHTML = rows.map((report) => `
+    <tr class="${report.id === state.selectedId ? 'selected' : ''}" data-report-id="${report.id}">
+      <td><strong>${report.id}</strong></td>
+      <td>${report.targetPlayer}</td>
+      <td>${report.reason}</td>
+      <td>${report.gameMode}</td>
+      <td><span class="badge ${riskClassMap[report.aiRisk]}">${report.aiRisk}</span></td>
+      <td>${report.reportCount}회</td>
+      <td><span class="badge ${report.status === '미처리' ? 'pending' : 'completed'}">${report.status}</span></td>
+      <td>${report.manager}</td>
+    </tr>
+  `).join('');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8">조건에 맞는 신고가 없습니다.</td></tr>';
+  }
+}
+
+function renderDetail() {
+  const report = reports.find((item) => item.id === state.selectedId) || getFilteredReports()[0] || reports[0];
+  state.selectedId = report.id;
+
+  document.querySelector('#detailPanel').innerHTML = `
+    <p class="eyebrow">신고 상세</p>
+    <h2>${report.targetPlayer}</h2>
+    <p class="muted">${report.id} · ${report.gameMode}</p>
+
+    <section class="detail-section">
+      <h3>채팅 로그 / 게임 기록</h3>
+      <ul class="log-list">${report.logs.map((log) => `<li>${log}</li>`).join('')}</ul>
+    </section>
+
+    <section class="detail-section">
+      <h3>신고자·피신고자 정보</h3>
+      <div class="info-grid">
+        <div><span>신고자</span><strong>${report.reporter}</strong></div>
+        <div><span>피신고자</span><strong>${report.targetPlayer}</strong></div>
+        <div><span>담당자</span><strong>${report.manager}</strong></div>
+        <div><span>신고 횟수</span><strong>${report.reportCount}회</strong></div>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h3>과거 제재 이력</h3>
+      <ul class="history-list">${report.history.map((item) => `<li>${item}</li>`).join('')}</ul>
+    </section>
+
+    <section class="detail-section">
+      <h3>유해발언 카테고리 / 심각도</h3>
+      <div class="info-grid">
+        <div><span>카테고리</span><strong>${report.categories.join(', ')}</strong></div>
+        <div><span>심각도</span><strong>${report.severity}</strong></div>
+        <div><span>AI 위험도</span><strong>${report.aiRisk}</strong></div>
+        <div><span>추천 조치</span><strong>${report.suggestedAction}</strong></div>
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h3>증거 자료</h3>
+      <ul class="evidence-list">${report.evidence.map((item) => `<li>${item}</li>`).join('')}</ul>
+    </section>
+
+    <section class="detail-section">
+      <h3>제재 처리</h3>
+      <div class="action-grid">
+        <button type="button" data-action="경고">경고</button>
+        <button type="button" data-action="채팅 제한">채팅 제한</button>
+        <button type="button" data-action="게임 제한">게임 제한</button>
+        <button class="danger" type="button" data-action="영구 정지">영구 정지</button>
+      </div>
+    </section>
+  `;
+}
+
+function render() {
+  renderSummary();
+  renderQueue();
+  renderDetail();
+}
+
+document.querySelector('#loginForm').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const adminId = String(form.get('adminId') || '');
+  const password = String(form.get('password') || '');
+
+  if (adminId !== loginAccount.id || password !== loginAccount.password) {
+    document.querySelector('#loginError').textContent = '운영자 ID 또는 비밀번호가 올바르지 않습니다.';
+    return;
+  }
+
+  document.querySelector('#loginScreen').hidden = true;
+  document.querySelector('#dashboard').hidden = false;
+  render();
+});
+
+document.querySelectorAll('nav button').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach((item) => item.classList.remove('active'));
+    button.classList.add('active');
+    state.filter = button.dataset.filter;
+    state.selectedId = getFilteredReports()[0]?.id || reports[0].id;
+    render();
+  });
+});
+
+document.querySelector('#reasonFilter').addEventListener('change', (event) => {
+  state.reason = event.target.value;
+  state.selectedId = getFilteredReports()[0]?.id || reports[0].id;
+  render();
+});
+
+document.querySelector('#searchInput').addEventListener('input', (event) => {
+  state.search = event.target.value;
+  state.selectedId = getFilteredReports()[0]?.id || reports[0].id;
+  render();
+});
+
+document.querySelector('#reportRows').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-report-id]');
+  if (!row) return;
+  state.selectedId = row.dataset.reportId;
+  render();
+});
+
+document.querySelector('#detailPanel').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const report = reports.find((item) => item.id === state.selectedId);
+  if (!report) return;
+  report.status = '처리완료';
+  report.suggestedAction = button.dataset.action;
+  render();
+});
+
+    </script>
+  </body>
+</html>
