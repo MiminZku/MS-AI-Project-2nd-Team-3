@@ -53,11 +53,7 @@ def analyze_game_chat(user_chat):
                                 "type": "api_key",
                                 "key": os.getenv("AZURE_SEARCH_KEY")
                             },
-                            # AI Search에서 파놓은 벡터 인덱스를 활용하기 위한 글로벌 표준 임베딩 종속성 주입
-                            "embedding_dependency": {
-                                "type": "deployment_name",
-                                "deployment_name": "text-embedding-3-small"
-                            },
+                            "query_type": "simple",  # 텍스트 기반 키워드 검색 적용 (벡터 필드가 없는 인덱스)
                             "strictness": 3,  # 문맥 유연성을 위해 엄격도 3 지정
                             "top_n_documents": 5  # 참조할 문서 조각 수
                         }
@@ -72,25 +68,25 @@ def analyze_game_chat(user_chat):
 
 def main():
     print("=" * 50)
-    print("      🎮 게임 채팅 유해성 실시간 심사기 (RAG Vector) 🎮")
+    print("      [게임 채팅 유해성 실시간 심사기 (RAG Vector)]")
     print("=" * 50)
-    print("👉 종료하려면 영어로 'exit'를 입력하세요.\n")
+    print("[안내] 종료하려면 영어로 'exit'를 입력하세요.\n")
 
     while True:
         # 터미널 표준 입력으로 채팅 수집
-        user_input = input("🗣️  채팅 입력 > ").strip()
+        user_input = input("[채팅 입력] > ").strip()
 
         if user_input.lower() == 'exit':
-            print("\n👋 프로그램을 종료합니다. 고생하셨습니다!")
+            print("\n[안내] 프로그램을 종료합니다. 고생하셨습니다!")
             break
 
         if not user_input:
             continue
 
-        print("\n🔍 AI Search 벡터 분석 및 등급 심사 중...")
+        print("\n[분석] AI Search 벡터 분석 및 등급 심사 중...")
         result = analyze_game_chat(user_input)
 
-        print("\n📊 [심사 결과]")
+        print("\n[심사 결과]")
         print(result)
         print("-" * 50 + "\n")
 
