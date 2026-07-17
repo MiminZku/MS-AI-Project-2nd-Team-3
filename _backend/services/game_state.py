@@ -52,6 +52,11 @@ class GameStateManager:
         for connection in self.active_connections:
             await connection.send_json(message)
 
+    async def relay_to_others(self, sender: WebSocket, message: dict):
+        for connection in self.active_connections:
+            if connection != sender:
+                await connection.send_json(message)
+
     async def broadcast_presence(self):
         await self.broadcast({"type": "presence", "count": len(self.active_connections)})
 

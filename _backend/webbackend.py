@@ -133,6 +133,30 @@ def get_dashboard():
     return {"hitl_reports": queued_reports, "pending_appeals": pending_appeals}
 
 
+@app.get("/api/admin/reports")
+def list_reports():
+    """admin_dashboard.html의 '신고 내역' 탭용 — 상태와 무관하게 전체 신고 목록을 최신순으로 반환한다."""
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM reports ORDER BY created_at DESC;")
+        return cur.fetchall()
+
+
+@app.get("/api/admin/sanctions")
+def list_sanctions():
+    """admin_dashboard.html의 '제재 내역' 탭용 — 전체 제재 목록을 최신순으로 반환한다."""
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM sanctions ORDER BY created_at DESC;")
+        return cur.fetchall()
+
+
+@app.get("/api/admin/appeals")
+def list_appeals():
+    """admin_dashboard.html의 '이의 신청' 탭용 — 상태와 무관하게 전체 이의 신청 목록을 최신순으로 반환한다."""
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM appeals ORDER BY created_at DESC;")
+        return cur.fetchall()
+
+
 @app.post("/api/admin/reports/{report_id}/sanction")
 def create_sanction(report_id: int, body: SanctionCreate):
     """관리자가 직접 고른 제재 수위를 적용한다 (AI 사전 판정이 아직 없는 현재 단계용)."""

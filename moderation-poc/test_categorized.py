@@ -174,22 +174,36 @@ if __name__ == "__main__":
             continue
 
         final_level = int(result["final_level"])
-        predicted_binary = 0 if final_level == 0 else 1
         cats = result.get("category_levels", {})
         aux_tags = result.get("auxiliary_tags", [])
         urgent = result.get("urgent_flags", [])
 
-        # 여러 카테고리가 동점(최고점)일 때, 팀에서 정한 우선순위로 대표 카테고리를 결정
-        # 우선순위: 폭력성 > 패드립 > 음란성발언 > 욕설강도 (이 순서로 심각하다고 판단)
-        PRIORITY_ORDER = ["폭력성발언", "패드립", "음란성발언", "욕설강도"]
-        if cats and max(cats.values(), default=0) > 0:
-            max_level = max(cats.values())  # 카테고리들 중 최고 점수 확인
-            # 최고 점수를 받은 카테고리들만 추려서, 그중 우선순위가 가장 높은 것을 대표로 선택
-            tied_categories = [c for c in PRIORITY_ORDER if cats.get(c, 0) == max_level]
-            predicted_category = tied_categories[0] if tied_categories else "없음"
+        # ⚠️ 안전장치: AI가 urgent_flags는 채웠는데 category_levels를 전부 0으로 남겨두는
+        # 모순된 응답을 낼 수 있음 (실제로 발생한 버그). AI 응답을 그대로 믿지 않고 코드에서 한 번 더 강제.
+        if urgent:
+            final_level = 4  # 긴급 플래그가 있으면 AI가 뭐라고 답했든 무조건 최상급으로 강제
+            if not cats or max(cats.values(), default=0) == 0:
+                # 카테고리 근거가 전혀 없는데 긴급이라고 한 경우 - "정상"이라고 표시하면 모순이므로 별도 라벨 사용
+                cats = {**{k: 0 for k in ["욕설강도", "음란성발언", "패드립", "폭력성발언"]}}
+                predicted_category = "긴급(카테고리 미상)"
+                predicted_binary = 1
+            else:
+                predicted_binary = 1
         else:
-            # 4개 카테고리 전부 0점이면 "우선순위상 첫 번째"가 아니라 그냥 정상으로 표시 (이전 버전의 표시 버그 수정)
-            predicted_category = "정상"
+            predicted_binary = 0 if final_level == 0 else 1
+
+        if not urgent or (cats and max(cats.values(), default=0) > 0):
+            # 여러 카테고리가 동점(최고점)일 때, 팀에서 정한 우선순위로 대표 카테고리를 결정
+            # 우선순위: 폭력성 > 패드립 > 음란성발언 > 욕설강도 (이 순서로 심각하다고 판단)
+            PRIORITY_ORDER = ["폭력성발언", "패드립", "음란성발언", "욕설강도"]
+            if cats and max(cats.values(), default=0) > 0:
+                max_level = max(cats.values())  # 카테고리들 중 최고 점수 확인
+                # 최고 점수를 받은 카테고리들만 추려서, 그중 우선순위가 가장 높은 것을 대표로 선택
+                tied_categories = [c for c in PRIORITY_ORDER if cats.get(c, 0) == max_level]
+                predicted_category = tied_categories[0] if tied_categories else "없음"
+            else:
+                # 4개 카테고리 전부 0점이면 "우선순위상 첫 번째"가 아니라 그냥 정상으로 표시 (이전 버전의 표시 버그 수정)
+                predicted_category = "정상"
 
         if str(predicted_binary) == str(gold_label):
             binary_correct += 1
