@@ -10,10 +10,28 @@ function showModeSelect() {
   gameActive = false;
   if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }
   stopRecording();
+  closeWebRTC();
+  if (ws) { ws.close(); ws = null; } // 멀티 중이었다면 즉시 연결을 끊어서 상대방 참가자 목록도 바로 갱신되게 함
   $id('goOverlay').classList.remove('show');
   $id('countdownOverlay').classList.remove('show');
   $id('readyOverlay').classList.remove('show');
   $id('modeOverlay').style.display = 'flex';
+}
+
+function restartToReadyRoom() {
+  clearInterval(timerInterval);
+  clearTimeout(aiTimeout);
+  clearTimeout(aiMoveTimeout);
+  clearInterval(countdownStep);
+  countdownActive = false;
+  gameActive = false;
+  if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }
+  stopRecording();
+  closeWebRTC();
+
+  $id('goOverlay').classList.remove('show');
+  $id('countdownOverlay').classList.remove('show');
+  if (gameMode) showReadyScreen(gameMode);
 }
 
 function selectMode(mode) {
@@ -51,14 +69,16 @@ function selectMode(mode) {
 function showReadyScreen(mode) {
   $id('readyIcon').textContent = mode === 'multi' ? '👥' : '🤖';
   $id('readyTitle').textContent = mode === 'multi' ? '멀티플레이' : 'AI 모드';
-  $id('readyRosterBlock').style.display = mode === 'multi' ? 'block' : 'none'; // AI 모드는 참가자 목록 의미 없음
+  $id('readyPlayerList').style.display = mode === 'multi' ? 'block' : 'none';
+  if (mode === 'multi') updateReadyPlayerList();
   $id('readyOverlay').classList.add('show');
 }
 
 function confirmGameStart() {
-  // '음성 사용' 또는 '마이크 사용' 중 하나라도 체크돼 있으면 이번 라운드는 녹음 진행
-  recordingConsented = $id('consentVoice').checked || $id('consentMic').checked;
+  // '마이크 사용'을 체크한 경우에만 이번 라운드 녹음 진행 (스피커 출력은 녹음과 무관)
+  recordingConsented = $id('consentMic').checked;
   $id('readyOverlay').classList.remove('show');
+  maybeStartWebRTC();
   beginGame();
 }
 
@@ -72,11 +92,33 @@ function setPresence(count) {
   } else {
     waiting.classList.remove('show');
   }
+  updateReadyPlayerList();
+}
+
+function updateReadyPlayerList() {
+  if (gameMode !== 'multi') return;
+
+  const selfName = $id('readySelfName');
+  const opponentNameEl = $id('readyOpponentName');
+  const opponentStatus = $id('readyOpponentStatus');
+  if (!selfName || !opponentNameEl || !opponentStatus) return;
+
+  selfName.textContent = MY_NAME || '나';
+  if (currentOpponentName) {
+    opponentNameEl.textContent = currentOpponentName;
+    opponentStatus.textContent = '접속 중';
+    opponentStatus.classList.add('connected');
+  } else {
+    opponentNameEl.textContent = '상대 플레이어 대기 중';
+    opponentStatus.textContent = '대기 중';
+    opponentStatus.classList.remove('connected');
+  }
 }
 
 // 상대방의 실제 닉네임을 P2 배너/라벨에 반영 — 대기 중엔 '기다리는 중', 알게 되면 이름으로 표시
 function updateOpponentDisplay() {
   if (gameMode !== 'multi') return;
+  updateReadyPlayerList();
   if (currentOpponentName) {
     $id('p2Label').textContent = `👤 ${currentOpponentName}`;
     $id('p2BannerName').textContent = currentOpponentName;
@@ -86,19 +128,4 @@ function updateOpponentDisplay() {
     $id('p2BannerName').textContent = '🎮 플레이어 2';
     $id('p2BannerHint').textContent = '상대 플레이어를 기다리는 중';
   }
-  updateRoster();
-}
-
-// 참가자(나/상대) 목록 갱신 — 사이드 패널 / 대기 화면 등 여러 곳에 같은 목록이 있을 수 있어 클래스로 전부 동기화
-function updateRoster() {
-  if (gameMode !== 'multi') return;
-
-  document.querySelectorAll('.roster-me-avatar').forEach(el => el.textContent = (MY_NAME || '?').slice(0, 2));
-  document.querySelectorAll('.roster-me-name').forEach(el => el.textContent = MY_NAME || '나');
-
-  const hasOpponent = !!currentOpponentName;
-  document.querySelectorAll('.roster-opponent-item').forEach(el => el.classList.toggle('empty', !hasOpponent));
-  document.querySelectorAll('.roster-opp-avatar').forEach(el => el.textContent = hasOpponent ? currentOpponentName.slice(0, 2) : '?');
-  document.querySelectorAll('.roster-opp-name').forEach(el => el.textContent = hasOpponent ? currentOpponentName : '대기 중...');
-  document.querySelectorAll('.roster-count').forEach(el => el.textContent = hasOpponent ? '(2/2)' : '(1/2)');
 }

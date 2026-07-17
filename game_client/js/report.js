@@ -3,6 +3,7 @@
 ═══════════════════════════════════════════════════════ */
 let reportType='';
 let reportTarget=null;
+let reportSubmitting=false;
 
 // type: 'chat' | 'voice'
 // target: 특정 채팅 메시지를 신고할 때 { user, text, time } (없으면 채팅 전체에 대한 일반 신고)
@@ -26,16 +27,55 @@ function openReport(type, target=null) {
 }
 function closeReport() { $id('overlay').classList.remove('open'); }
 function bgClose(e) { if (e.target===$id('overlay')) closeReport(); }
-function submitReport() {
+async function submitReport() {
+  if (reportSubmitting) return;
   const checked = document.querySelector('input[name="reason"]:checked');
   if (!checked) return;
-  // 특정 메시지 신고면 그 작성자를, 아니면(일반 채팅/음성 신고) 지금 방의 상대방을 대상으로 함
+  reportSubmitting = true;
+  const submitButton = $id('reportSubmitBtn');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = '제출 중...';
+  }
   const targetUser = reportTarget ? reportTarget.user : opponentName();
+  const isVoiceReport = reportType === 'voice';
+  const payload = {
+    reporter_id: MY_NAME,
+    target_user_id: targetUser,
+    channel: isVoiceReport ? 'voice' : 'text',
+    content_text: isVoiceReport ? '' : (reportTarget?.text || ''),
+    content_path: isVoiceReport ? `/recordings/${targetUser}.webm` : ''
+  };
+
+  try {
+    const response = await fetch(`${getHttpBase()}/api/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`report request failed: ${response.status}`);
+    await response.json();
+  } catch (err) {
+    reportSubmitting = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = '신고 제출';
+    }
+    console.warn('신고 접수 요청 실패:', err);
+    showToast('신고 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+
   const entryId = addReportHistory(targetUser, checked.value);
   closeReport();
   showToast(reportType==='voice' ? '음성 신고가 접수되었습니다.' : '채팅 신고가 접수되었습니다.');
   reportTarget = null;
-  attachEvidenceAudio(entryId, targetUser);
+  if (isVoiceReport) attachEvidenceAudio(entryId, targetUser);
+  reportSubmitting = false;
+  if (submitButton) {
+    submitButton.disabled = false;
+    submitButton.textContent = '신고 제출';
+  }
 }
 function showToast(msg) {
   const el=$id('toast'); $id('toastMsg').textContent=msg;

@@ -26,14 +26,14 @@ $id('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') sendMsg
 let ws = null;
 let MY_NAME = null; // auth.js의 닉네임 입력에서 설정됨 (모드 선택 전에 반드시 정해짐)
 let currentOpponentName = null; // 서버가 'opponent' 메시지로 알려줌 (같은 방에 상대가 있을 때만 값이 있음)
+const FIXED_SERVER_ADDR = '172.16.30.143:3000';
 
 function opponentName() {
   return currentOpponentName || '상대방';
 }
 
 function getHttpBase() {
-  const addr = ($id('serverAddr')?.value || 'localhost:3000').trim();
-  return `http://${addr}`;
+  return `http://${FIXED_SERVER_ADDR}`;
 }
 
 function connectChat() {
@@ -45,8 +45,7 @@ function connectChat() {
     ws.close();
   }
 
-  const addr = ($id('serverAddr')?.value || 'localhost:3000').trim();
-  const url = `ws://${addr}`;
+  const url = `ws://${FIXED_SERVER_ADDR}`;
   setChatStatus('🟡 연결 중...', '#FF9F43');
   try {
     ws = new WebSocket(url);
@@ -76,6 +75,9 @@ function connectChat() {
           appendSystemMsg(`— ${escHtml(prevOpponent)}님이 퇴장했습니다 —`);
         }
         updateOpponentDisplay();
+        if (data.name) maybeStartWebRTC();
+      } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate') {
+        handleWebRtcMessage(data);
       } else if (data.type === 'full') {
         setChatStatus('🔴 방이 가득 참', 'var(--danger)');
         appendSystemMsg('— 이미 다른 두 명이 접속 중입니다 —');
@@ -108,7 +110,7 @@ function appendChatMsg(msg) {
   const div = document.createElement('div');
   div.className = 'msg';
   const isMe = msg.user === MY_NAME;
-  div.innerHTML = `<div class="msg-meta"><span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#00E5A0'}">${escHtml(msg.user)}</span><span class="msg-time">${msg.time}</span></div><div class="msg-text">${escHtml(msg.text)}</div>`;
+  div.innerHTML = `<div class="msg-meta"><span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#0EA968'}">${escHtml(msg.user)}</span><span class="msg-time">${msg.time}</span></div><div class="msg-text">${escHtml(msg.text)}</div>`;
 
   // 상대방 메시지에만 개별 신고 버튼 노출 (내 메시지는 신고 불가)
   if (!isMe) {

@@ -96,6 +96,9 @@ let sanctions = [
     duration_days: 7,
     ended_at: now + 7 * DAY,
   },
+];
+
+let appeals = [
   {
     id: 2,
     created_at: now - 2 * DAY,
