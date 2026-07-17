@@ -1,95 +1,130 @@
 import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
+from azure.core.credentials import AzureKeyCredential
+from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
 
-# 1. .env 파일 로드
-current_dir = os.path.dirname(os.path.abspath(__file__))
-dotenv_path = os.path.join(current_dir, ".env")
-load_dotenv(dotenv_path)
+# 1. 환경 변수 로드
+load_dotenv()
 
-# 2. Azure OpenAI 클라이언트 초기화
-client = AzureOpenAI(
+# 2. 클라이언트 개별 초기화
+ai_client = AzureOpenAI(
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_key=os.getenv("AZURE_OPENAI_KEY") or os.getenv("AZURE_OPENAI_API_KEY"),
-    api_version="2024-12-01-preview"  # On Your Data 벡터 검색 안정 버전을 사용합니다.
+    api_key=os.getenv("AZURE_OPENAI_KEY"),
+    api_version="2025-04-01-preview"
 )
 
-# 3. 이전에 튜닝해 둔 철저한 시스템 프롬프트 반영
-SYSTEM_PROMPT = """당신은 게임 채팅 유해발언 심사역입니다. 당신의 개인적인 상식이나 AI로서의 사전 지식은 완전히 배제하고, 오직 제공된 참조 문서(Context)의 기준만을 바탕으로 판단해야 합니다.
+search_client = SearchClient(
+    endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+    index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"),
+    credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
+)
 
-[RAG 문서 엄격 준수 규칙]
-1. 사용자가 보낸 채팅 단어 자체의 일반적인 유해성보다, 참조 문서에 적힌 "단계별 조건(예: 대상을 특정하지 않은 짧은 비속어/감탄사성 욕설 1회 = 1단계)"을 최우선으로 적용하세요.
-2. 문서에 명확한 근거(예: 미성년자 대상 등)가 없는 한 절대 임의로 4단계를 부여해서는 안 됩니다. 문서의 기준과 다르게 채점하는 것은 오답입니다.
-
-[최종 판단 규칙]
-* 4개 카테고리 각각 0~4단계로 채점
-* 하나의 발언이 둘 이상의 카테고리에 해당하면 가장 높은 단계를 기준으로 판단
-* 미성년자가 발화 대상이거나 관련 내용이 포함되면 카테고리 불문 최상급(4단계)으로 가중 (※ 주의: 미성년자 관련 조건이 없을 때는 본 가중 규칙을 절대 적용하지 마십시오.)
-
-반드시 코드블록(```) 없이 순수 JSON 텍스트로만 답변하세요.
-형식: {"category_levels": {"욕설강도": 정수, "음란성발언": 정수, "패드립": 정수, "폭력성발언": 정수},"final_level": 정수, "confidence": 0~1 사이 실수, "reason": "참고 문서 내 어떤 조건을 근거로 몇 단계로 판단했는지 상세히 기술"}"""
-
-
-def analyze_game_chat(user_chat):
-    """
-    사용자 채팅을 받아 배포된 임베딩 모델로 AI Search 벡터 검색을 수행한 뒤,
-    gpt-4o-mini 모델을 통해 유해 등급을 판정하는 함수
-    """
+def search_rag_documents(query, top_n=3, strictness_level=2): # 테스트를 위해 우선 1로 세팅
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",  # 배포된 Chat 모델 이름
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_chat}
-            ],
-            extra_body={
-                "data_sources": [
-                    {
-                        "type": "azure_search",
-                        "parameters": {
-                            "endpoint": os.getenv("AZURE_SEARCH_ENDPOINT"),
-                            "index_name": os.getenv("AZURE_SEARCH_INDEX_NAME"),
-                            "authentication": {
-                                "type": "api_key",
-                                "key": os.getenv("AZURE_SEARCH_KEY")
-                            },
-                            "query_type": "simple",  # 텍스트 기반 키워드 검색 적용 (벡터 필드가 없는 인덱스)
-                            "strictness": 3,  # 문맥 유연성을 위해 엄격도 3 지정
-                            "top_n_documents": 5  # 참조할 문서 조각 수
-                        }
-                    }
-                ]
-            }
+        # 1. 사용자의 질문을 임베딩 모델을 사용해 벡터(숫자 배열)로 실시간 변환
+        embedding_response = ai_client.embeddings.create(
+            model="text-embedding-3-small",  # 본인의 임베딩 모델 배포명
+            input=query
         )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"🚨 에러가 발생했습니다: {e}"
+        query_vector = embedding_response.data[0].embedding
 
+        # 2. 벡터 검색 쿼리 객체 생성
+        vector_query = VectorizedQuery(
+            vector=query_vector, 
+            k_nearest_neighbors=top_n, 
+            fields="text_vector"
+        )
+
+        # 3. 하이브리드 검색 수행 (텍스트 키워드 + 벡터 쿼리 동시 투입 + 시맨틱 랭커)
+        results = search_client.search(
+            search_text=query,
+            vector_queries=[vector_query], # 👈 벡터 데이터 주입!
+            query_type="semantic",
+            semantic_configuration_name="rag-1784298934553-semantic-configuration",
+            top=top_n
+        )
+        
+        # strictness 커트라인 설정
+        thresholds = {1: 0.0, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5}
+        cutoff_score = thresholds.get(strictness_level, 0.0)
+        
+        context_chunks = []
+        for doc in results:
+            semantic_score = doc.get("@search.reranker_score", 0.0)
+            
+            if semantic_score < cutoff_score:
+                continue 
+                
+            content = doc.get("chunk") or ""
+            if content:
+                context_chunks.append(content)
+                
+        return "\n\n".join(context_chunks)
+        
+    except Exception as e:
+        print(f"⚠️ 검색 오류: {e}")
+        return ""
+
+def analyze_chat_with_rag(user_chat):
+    # 1단계: 사용자가 친 채팅 맥락과 가장 유사한 규정 문서 조각을 AI Search에서 직접 긁어옴
+    retrieved_context = search_rag_documents(user_chat)
+    
+    # 2단계: 긁어온 문서를 시스템 프롬프트에 동적으로 조립해서 쥐여줌
+    dynamic_system_prompt = f"""당신은 게임 채팅 유해발언 심사역입니다. 당신의 개인적인 상식은 배제하고, 아래 제공된 [참조 규정 문서]의 기준만을 바탕으로 대상의 지칭성 여부를 판단하여 단계를 결정해야 합니다.
+
+[참조 규정 문서]
+{retrieved_context}
+
+반드시 JSON 텍스트로만 답변하세요.
+형식: {{"category_levels": {{"욕설강도": 정수, "음란성발언": 정수, "패드립": 정수, "폭력성발언": 정수}},"auxiliary_tags":문자열 배열,"urgent_flags":문자열 배열,"final_level": 정수, "confidence": 0~1 사이 실수, "reason": "참조 규정 문서 내 어떤 구체적인 조건과 대조하여 몇 단계로 판단했는지 상세히 기술"}}
+
+[판정 예시 (Few-shot)]
+- 입력 채팅: "라준호 뇌 없음? 진짜 손가락 부러졌나"
+  * 판단 논리: '라준호'라는 특정 유저의 닉네임을 언급하며 '뇌 없음'이라는 비하 발언을 유도함. 대상이 명확히 특정되었으므로 단순 욕설 1단계가 아닌, 지칭성 비하 규칙에 의거하여 욕설강도 [2단계] 적용.
+  * 최종 출력 JSON: {{"category_levels": {{"욕설강도": 2, "음란성발언": 0, "패드립": 0, "폭력성발언": 0}}, "final_level": 2, ...}}
+
+- 입력 채팅: "아 진짜 시발 개짜증나네"
+  * 판단 논리: 대상을 지정하지 않고 본인의 감정을 배설하는 단순 비속어 사용이므로 규칙에 따라 욕설강도 [1단계] 적용.
+"""
+
+    # 3단계: 순수 Chat Completion 호출 (글로벌 표준 제약에 걸리지 않음)
+    response = ai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": dynamic_system_prompt},
+            {"role": "user", "content": user_chat}
+        ]
+    )
+    return response.choices[0].message.content
 
 def main():
-    print("=" * 50)
-    print("      [게임 채팅 유해성 실시간 심사기 (RAG Vector)]")
-    print("=" * 50)
-    print("[안내] 종료하려면 영어로 'exit'를 입력하세요.\n")
+    print("=" * 60)
+    print("     🎮 글로벌 제약 우회형 유해성 실시간 심사기 (Pure Python RAG) 🎮")
+    print("=" * 60)
+    print("👉 종료하려면 영어로 'exit'를 입력하세요.\n")
 
     while True:
-        # 터미널 표준 입력으로 채팅 수집
-        user_input = input("[채팅 입력] > ").strip()
-
+        user_input = input("🗣️  채팅 입력 > ").strip()
         if user_input.lower() == 'exit':
-            print("\n[안내] 프로그램을 종료합니다. 고생하셨습니다!")
             break
-
         if not user_input:
             continue
 
-        print("\n[분석] AI Search 벡터 분석 및 등급 심사 중...")
-        result = analyze_game_chat(user_input)
+        print("\n🔍 가이드라인 문서 벡터 매칭 및 유해 등급 심사 중...")
 
-        print("\n[심사 결과]")
+        # 1. 어떤 문서를 가져오는지 먼저 가로채서 출력해보기
+        retrieved_context = search_rag_documents(user_input)
+        print("\n📋 [AI Search가 찾아온 실제 가이드라인 내용]:")
+        print(retrieved_context if retrieved_context else "⚠️ 매칭된 문서 없음!")
+        print("-" * 40)
+
+        # 2. 그 다음 심사 요청
+        result = analyze_chat_with_rag(user_input)
+        print("\n📊 [심사 결과]")
         print(result)
-        print("-" * 50 + "\n")
-
+        print("-" * 60 + "\n")
 
 if __name__ == "__main__":
     main()
