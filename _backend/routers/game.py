@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, Header
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, Header, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -44,8 +44,44 @@ async def handle_login(req: LoginRequest):
     finally:
         db.close()
 
+async def process_report_task(report_id: int, channel: str, target_user_id: str, content_text: str):
+    if channel == "text" and content_text:
+        result = await analyze_chat(content_text)
+        
+        print(f"\n======================================")
+        print(f"🔥 [OpenAI 분석 완료 (백그라운드)] 대상: {target_user_id}")
+        print(f"채팅 내용: {content_text}")
+        print(f"판정 결과: {json.dumps(result, ensure_ascii=False, indent=2)}")
+        print(f"======================================\n")
+        
+        final_level = int(result.get("final_level", 0))
+        
+        if final_level > 0:
+            db = SessionLocal()
+            try:
+                sanction = Sanction(
+                    user_id=target_user_id,
+                    type="KICK",
+                    duration_days=1,
+                    ai_result=json.dumps(result, ensure_ascii=False)
+                )
+                db.add(sanction)
+                
+                db_report = db.query(Report).filter(Report.id == report_id).first()
+                if db_report:
+                    db_report.status = "COMPLETED"
+                db.commit()
+            except Exception as e:
+                print(f"Background DB Error: {e}")
+            finally:
+                db.close()
+
+            # 실시간 소켓 강퇴
+            await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다.", "time": "now"}})
+            await manager.kick_user(target_user_id, f"욕설 감지 (Lv.{final_level})")
+
 @router.post("/api/report")
-async def handle_report(req: ReportRequest):
+async def handle_report(req: ReportRequest, background_tasks: BackgroundTasks):
     db = SessionLocal()
     try:
         # 안전장치: DB에 유저가 없을 경우 강제 생성 (외래키 에러 방지)
@@ -66,35 +102,12 @@ async def handle_report(req: ReportRequest):
         db.add(new_report)
         db.commit()
         db.refresh(new_report)
+        report_id = new_report.id
 
-        if req.channel == "text" and req.content_text:
-            result = await analyze_chat(req.content_text)
-            
-            # 터미널 디버깅용 로그 출력 추가
-            print(f"\n======================================")
-            print(f"🔥 [OpenAI 분석 완료] 대상: {req.target_user_id}")
-            print(f"채팅 내용: {req.content_text}")
-            print(f"판정 결과: {json.dumps(result, ensure_ascii=False, indent=2)}")
-            print(f"======================================\n")
-            
-            final_level = int(result.get("final_level", 0))
-            
-            if final_level > 0:
-                sanction = Sanction(
-                    user_id=req.target_user_id,
-                    type="KICK",
-                    duration_days=1,
-                    ai_result=json.dumps(result, ensure_ascii=False)
-                )
-                db.add(sanction)
-                new_report.status = "COMPLETED"
-                db.commit()
-
-                # 실시간 소켓 강퇴
-                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {req.target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다.", "time": "now"}})
-                await manager.kick_user(req.target_user_id, f"욕설 감지 (Lv.{final_level})")
+        # OpenAI 검사 및 제재 로직을 백그라운드로 위임
+        background_tasks.add_task(process_report_task, report_id, req.channel, req.target_user_id, req.content_text)
                 
-        return {"status": "ok", "report_id": new_report.id}
+        return {"status": "ok", "report_id": report_id}
     except Exception as e:
         print(f"Report Error: {e}")
         return Response(content="error", status_code=500)
@@ -134,9 +147,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast({"type": "chat", "message": msg})
                         # 향후 이 부분에서 AI(LLM) 기반 욕설 필터링 및 DB 저장을 수행할 수 있습니다.
 
-            elif msg_type in {"webrtc_offer", "webrtc_answer", "webrtc_ice_candidate"}:
-                # WebRTC 시그널은 발신자 자신에게 되돌리지 않고 상대방에게만 전달한다.
-                await manager.relay_to_others(websocket, data)
+            # WebRTC 시그널링 메시지 중계 (1:1 통신을 가정하여 나를 제외한 모두에게 전달)
+            elif msg_type in ["webrtc_offer", "webrtc_answer", "webrtc_ice_candidate"]:
+                for other_ws in manager.active_connections:
+                    if other_ws != websocket:
+                        await other_ws.send_json(data)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
