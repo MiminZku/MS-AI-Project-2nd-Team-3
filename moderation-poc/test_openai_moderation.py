@@ -16,8 +16,8 @@ client = AzureOpenAI(
     api_version="2025-04-01-preview",                     # gpt-5 계열(reasoning 모델) 지원을 위해 최신 버전 사용
 )
 
-# Foundry 배포 화면에서 확인한 실제 "배포 이름" (모델명과 같게 지으셨으므로 동일)
-DEPLOYMENT_NAME = "gpt-5-mini"
+# Foundry 배포 화면에서 확인한 실제 "배포 이름" (환경변수가 있으면 사용하고 기본값은 gpt-5-mini로 유지)
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5-mini")
 
 # 2) 판정 기준을 담은 시스템 프롬프트
 # 실제 RAG 규정 지침 DB 대신, 지금은 4단계 등급 체계를 프롬프트에 직접 넣어서 빠르게 테스트합니다.
@@ -66,16 +66,17 @@ SYSTEM_PROMPT = """당신은 게임 채팅 유해발언 심사역입니다. 아�
 
 def classify(text: str) -> dict:
     # 한 문장을 OpenAI에 보내서 등급 판정을 JSON으로 받아오는 함수
-    # 이 배포는 예전 방식인 Chat Completions(messages)를 지원하지 않고,
-    # 새 방식인 Responses API(instructions + input)만 지원하므로 이 방식으로 호출함
-    response = client.responses.create(
+    # Azure OpenAI는 Responses API를 직접 지원하지 않으므로 Chat Completions를 사용합니다.
+    response = client.chat.completions.create(
         model=DEPLOYMENT_NAME,          # 배포 이름 지정
-        instructions=SYSTEM_PROMPT,     # 시스템 프롬프트 역할 (판정 기준)
-        input=text,                     # 실제 채팅 문장 (사용자 입력 역할)
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text}
+        ],
         # reasoning 계열 모델(gpt-5-mini)은 temperature 파라미터를 지원하지 않아 제거함
         # → 대신 temperature=0이 해주던 "일관성"은 SYSTEM_PROMPT 지시로 최대한 확보
     )
-    raw = response.output_text           # Responses API는 완성된 텍스트를 이 속성으로 바로 제공
+    raw = response.choices[0].message.content           # Chat Completions의 텍스트 응답 추출
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         # ```json ... ``` 형태로 감싸서 줄 경우, 앞뒤 코드블록 표시를 제거
