@@ -234,8 +234,8 @@ function processSelection() {
 function drawSelRect(ctx, canvas, x, y, w, h, sum, count) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (w < 2 && h < 2) return;
-  const fill   = sum === 10 ? 'rgba(0,229,160,.12)' : sum > 10 ? 'rgba(255,77,109,.10)' : 'rgba(108,99,255,.10)';
-  const stroke = sum === 10 ? '#00E5A0'              : sum > 10 ? '#FF4D6D'               : '#6C63FF';
+  const fill   = sum === 10 ? 'rgba(14,169,104,.14)' : sum > 10 ? 'rgba(224,51,90,.12)' : 'rgba(108,99,255,.12)';
+  const stroke = sum === 10 ? '#0EA968'               : sum > 10 ? '#E0335A'            : '#6C63FF';
   ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 2;
   ctx.setLineDash(sum === 10 ? [] : [5,3]);
   ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill(); ctx.stroke();

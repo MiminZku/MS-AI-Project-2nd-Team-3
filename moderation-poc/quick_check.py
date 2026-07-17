@@ -1,13 +1,11 @@
-# game_chat_categorized.txt (text|label|category|level 형식)를 이용해서
-# OpenAI 판정 결과를 세 가지 각도로 검증하는 스크립트:
-# 1) 이진(욕설/정상) 정확도 - 기존과 동일한 기준
-# 2) 카테고리 일치율 - 실제 의도한 카테고리(패드립 등)와 모델이 최고점을 준 카테고리가 같은지
-# 3) 단계 일치율 - 의도한 단계와 모델이 매긴 단계가 얼마나 가까운지
+# 확정된 프롬프트(test_categorized.py와 동일 버전)로,
+# 정답 라벨 없이 "새 문장 몇 개"를 빠르게 넣어서 결과만 확인하는 스크립트.
+# 정확도 계산 없음 - 그냥 "이 문장을 넣으면 어떻게 판정되는지" 눈으로 확인하는 용도.
 
 import os
 import json
 from dotenv import load_dotenv
-from openai import AzureOpenAI, BadRequestError  # BadRequestError: Azure 콘텐츠 필터에 걸려 요청 자체가 차단됐을 때 발생
+from openai import AzureOpenAI, BadRequestError
 
 load_dotenv()
 
@@ -19,8 +17,9 @@ client = AzureOpenAI(
 
 DEPLOYMENT_NAME = "gpt-5-mini"
 
-# 팀 정책 문서 v2("게임 채팅 유해발언 분류 정책 업데이트") 기준 프롬프트
-# v1 대비 추가된 것: 역할 구분(유해발언 사용자/저지 이용자/욕설 대상), 보조 태그, 긴급 플래그
+# ⚠️ 이 SYSTEM_PROMPT는 test_categorized.py의 최종 확정 버전과 반드시 동일하게 유지하세요.
+# test_categorized.py를 다시 수정했다면, 그 최신 SYSTEM_PROMPT를 여기에도 그대로 복사해와야
+# "같은 기준으로" 새 문장을 테스트하는 게 됩니다.
 SYSTEM_PROMPT = """당신은 게임 채팅 유해발언 심사역입니다. 아래 기준에 따라 채팅 한 줄을 분석하세요.
 
 [공통 판단 원칙] 아래 요소를 종합적으로 고려해서 단계를 정하세요.
@@ -110,130 +109,67 @@ def classify(text: str) -> dict:
         model=DEPLOYMENT_NAME,
         instructions=SYSTEM_PROMPT,
         input=text,
-        max_output_tokens=2000,          # 내부 사고+최종답 합쳐서 쓸 수 있는 토큰 여유를 늘림 (빈 응답 방지)
-        reasoning={"effort": "low"},     # 내부 사고 단계를 줄여서, 최종 답에 토큰을 더 남겨둠
+        max_output_tokens=2000,
+        reasoning={"effort": "low"},
     )
     raw = response.output_text.strip()
     if not raw:
-        raise ValueError("empty_response")  # 빈 응답을 명확한 예외로 구분해서 던짐
+        raise ValueError("empty_response")
     if raw.startswith("```"):
         raw = raw.strip("`").replace("json", "", 1).strip()
     return json.loads(raw)
 
 def classify_with_retry(text: str, max_retries: int = 1) -> dict:
-    # 빈 응답은 콘텐츠 필터 때문일 수도 있지만, gpt-5-mini의 일시적 오류일 수도 있음
-    # → 바로 실패 처리하지 않고 한 번 더 시도해서, 재시도로 해결되는지 확인
     last_error = None
     for attempt in range(max_retries + 1):
         try:
             return classify(text)
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
-            continue  # 재시도
-    raise last_error  # 재시도까지 다 실패하면 그때 진짜 실패로 처리
-
-def load_categorized(path: str):
-    # text|label|category|level 4개 컬럼을 읽어오는 함수
-    samples = []
-    with open(path, encoding="utf-8") as f:
-        for line in f.readlines()[1:]:  # 첫 줄은 헤더라서 건너뜀
-            parts = line.strip().split("|")
-            if len(parts) != 4:
-                continue  # 형식이 안 맞는 줄은 건너뜀
-            text, label, category, level = parts
-            samples.append((text, label, category, level))
-    return samples
+            continue
+    raise last_error
 
 if __name__ == "__main__":
-    samples = load_categorized("game_chat_categorized_FINAL.txt")
+    # ↓↓↓ 여기에 확인하고 싶은 새 문장을 자유롭게 적어넣으세요 (정답 라벨 필요 없음) ↓↓↓
+    new_sentences = [
+        "너 죽여버리기 전에 작작해",
+        "니 부모 백년해로",
+        "ㅗㅜㅑ",
+        "너희 부모님 평생 내성발톱",
+        "니네 부모님 케찹 도둑",
+    ]
 
-    binary_correct = 0     # 욕설/정상 이진 정답 개수
-    category_correct = 0   # 카테고리(욕설강도/음란성발언/패드립/폭력성) 일치 개수
-    level_exact = 0        # 단계까지 정확히 일치하는 개수
-    level_close = 0        # 단계가 ±1 오차 안에 드는 개수 (완전히 틀린 건 아닌 경우)
-    category_total = 0     # 카테고리 비교 대상(정상 문장은 카테고리 비교에서 제외)
-    hitl_queue = []        # AI가 판정 자체를 못 내린 케이스 - 실제 서비스라면 여기로 온 건들이 관리자 검토 큐로 자동 전달됨
+    PRIORITY_ORDER = ["폭력성발언", "패드립", "음란성발언", "욕설강도"]
 
-    for text, gold_label, gold_category, gold_level in samples:
+    for text in new_sentences:
         try:
             result = classify_with_retry(text)
-        except json.JSONDecodeError:
-            hitl_queue.append((text, "재시도 후에도 빈 응답/파싱 실패"))
-            print(f"[HITL 전달] {text[:20]}... | 사유: 재시도 후에도 빈 응답/파싱 실패 → 관리자 검토 큐로 전송")
-            continue
-        except ValueError:
-            hitl_queue.append((text, "재시도 후에도 빈 응답"))
-            print(f"[HITL 전달] {text[:20]}... | 사유: 재시도 후에도 빈 응답 → 관리자 검토 큐로 전송")
+        except (json.JSONDecodeError, ValueError):
+            print(f"[!] 판정 실패(빈 응답) → 실제 서비스라면 관리자 검토로 전달: {text}")
             continue
         except BadRequestError as e:
-            # Azure 콘텐츠 필터가 요청 자체를 차단한 경우 - AI조차 판단을 거부할 정도로 심각하다는 신호이므로,
-            # 실제 서비스라면 이 자체를 "최상급 의심" 케이스로 보고 즉시 관리자에게 넘기는 게 맞는 설계
             reason = e.body.get('error', {}).get('code', '알수없음') if hasattr(e, 'body') else str(e)[:50]
-            hitl_queue.append((text, f"콘텐츠 필터 차단({reason})"))
-            print(f"[HITL 전달] {text[:20]}... | 사유: 콘텐츠 필터 차단({reason}) → 관리자 검토 큐로 전송")
+            print(f"[!] 콘텐츠 필터 차단({reason}) → 실제 서비스라면 관리자 검토로 전달: {text}")
             continue
 
-        final_level = int(result["final_level"])
         cats = result.get("category_levels", {})
+        final_level = result.get("final_level", 0)
         aux_tags = result.get("auxiliary_tags", [])
         urgent = result.get("urgent_flags", [])
 
-        # ⚠️ 안전장치: AI가 urgent_flags는 채웠는데 category_levels를 전부 0으로 남겨두는
-        # 모순된 응답을 낼 수 있음 (실제로 발생한 버그). AI 응답을 그대로 믿지 않고 코드에서 한 번 더 강제.
-        if urgent:
-            final_level = 4  # 긴급 플래그가 있으면 AI가 뭐라고 답했든 무조건 최상급으로 강제
-            if not cats or max(cats.values(), default=0) == 0:
-                # 카테고리 근거가 전혀 없는데 긴급이라고 한 경우 - "정상"이라고 표시하면 모순이므로 별도 라벨 사용
-                cats = {**{k: 0 for k in ["욕설강도", "음란성발언", "패드립", "폭력성발언"]}}
-                predicted_category = "긴급(카테고리 미상)"
-                predicted_binary = 1
-            else:
-                predicted_binary = 1
+        if cats and max(cats.values(), default=0) > 0:
+            max_level = max(cats.values())
+            tied = [c for c in PRIORITY_ORDER if cats.get(c, 0) == max_level]
+            predicted_category = tied[0] if tied else "없음"
         else:
-            predicted_binary = 0 if final_level == 0 else 1
+            predicted_category = "정상"
 
-        if not urgent or (cats and max(cats.values(), default=0) > 0):
-            # 여러 카테고리가 동점(최고점)일 때, 팀에서 정한 우선순위로 대표 카테고리를 결정
-            # 우선순위: 폭력성 > 패드립 > 음란성발언 > 욕설강도 (이 순서로 심각하다고 판단)
-            PRIORITY_ORDER = ["폭력성발언", "패드립", "음란성발언", "욕설강도"]
-            if cats and max(cats.values(), default=0) > 0:
-                max_level = max(cats.values())  # 카테고리들 중 최고 점수 확인
-                # 최고 점수를 받은 카테고리들만 추려서, 그중 우선순위가 가장 높은 것을 대표로 선택
-                tied_categories = [c for c in PRIORITY_ORDER if cats.get(c, 0) == max_level]
-                predicted_category = tied_categories[0] if tied_categories else "없음"
-            else:
-                # 4개 카테고리 전부 0점이면 "우선순위상 첫 번째"가 아니라 그냥 정상으로 표시 (이전 버전의 표시 버그 수정)
-                predicted_category = "정상"
-
-        if str(predicted_binary) == str(gold_label):
-            binary_correct += 1
-
-        # 정상 문장(gold_label=0)은 애초에 카테고리가 없으므로 카테고리/단계 비교에서는 제외
-        if gold_label == "1":
-            category_total += 1
-            if predicted_category == gold_category:
-                category_correct += 1
-            if str(final_level) == gold_level:
-                level_exact += 1
-            if abs(final_level - int(gold_level)) <= 1:
-                level_close += 1
-
-        urgent_marker = f" 🚨긴급:{urgent}" if urgent else ""
-        aux_marker = f" 🏷️{aux_tags}" if aux_tags else ""
-        print(f"문장: {text[:18]}... | 정답(카테고리/단계):{gold_category}/{gold_level} | "
-              f"예측(카테고리/단계):{predicted_category}/{final_level} | 세부:{cats}{urgent_marker}{aux_marker}")
-
-    attempted = len(samples) - len(hitl_queue)
-    print(f"\n=== 결과 요약 (총 {len(samples)}개 중 AI 정상 판정 {attempted}개) ===")
-    print(f"관리자 검토(HITL) 큐로 전달된 건: {len(hitl_queue)}건")
-    print(f"[이진 정확도] {binary_correct}/{attempted} = {binary_correct/attempted*100:.1f}%")
-    if category_total > 0:
-        print(f"[카테고리 일치율] {category_correct}/{category_total} = {category_correct/category_total*100:.1f}%")
-        print(f"[단계 정확 일치] {level_exact}/{category_total} = {level_exact/category_total*100:.1f}%")
-        print(f"[단계 ±1 이내] {level_close}/{category_total} = {level_close/category_total*100:.1f}%")
-
-    if hitl_queue:
-        print("\n=== 관리자 검토(HITL) 큐 상세 목록 ===")
-        print("(실제 서비스라면 아래 건들이 자동으로 관리자 대시보드에 표시됨)")
-        for text, reason in hitl_queue:
-            print(f" - [{text}] → {reason}")
+        print(f"문장: {text}")
+        print(f"  → 판정: {predicted_category} / {final_level}단계 (신뢰도 {result.get('confidence', '?')})")
+        print(f"  → 세부: {cats}")
+        if urgent:
+            print(f"  → 🚨 긴급 플래그: {urgent}")
+        if aux_tags:
+            print(f"  → 🏷️ 보조 태그: {aux_tags}")
+        print(f"  → 이유: {result.get('reason', '')}")
+        print()
