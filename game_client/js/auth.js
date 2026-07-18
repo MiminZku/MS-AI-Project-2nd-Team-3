@@ -1,27 +1,59 @@
 /* ═══════════════════════════════════════════════════════
    로그인 → 닉네임 → 모드 선택 진입 플로우
 
-   ⚠️ 로그인은 지금 실제 인증(계정 DB/비밀번호 검증)이 없는 프론트엔드 목업입니다.
-   아이디/비밀번호를 둘 다 입력하면 통과시키고, 실제로 서버에 검증을 요청하지 않습니다.
-   나중에 진짜 로그인 API가 생기면 submitLogin() 안의 통과 조건만 바꾸면 됩니다.
+   로그인 시 /api/login을 호출해 정지(banned) 여부를 확인한다.
+   정지된 계정이면 안내 문구를 띄우고 로그인 화면에 그대로 머무른다.
 ═══════════════════════════════════════════════════════ */
-function submitLogin() {
+async function submitLogin() {
   const id = $id('loginId').value.trim();
   const err = $id('loginError');
+  const btn = $id('loginSubmitBtn');
 
   if (!id) {
+    err.textContent = '아이디를 입력해 주세요';
     err.style.display = 'block';
     return;
   }
   err.style.display = 'none';
 
-  MY_NAME = id;
-  $id('playerName').textContent = id;
-  $id('playerAvatar').textContent = id.slice(0, 2);
-  $id('p1Label').textContent = id;
-  $id('p1BannerName').textContent = id;
-  $id('goP1Name').textContent = `🎮 ${id}`;
-  $id('loginOverlay').style.display = 'none';
+  if (btn) { btn.disabled = true; btn.textContent = '로그인 중...'; }
+
+  try {
+    const res = await fetch(`${getHttpBase()}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: id })
+    });
+    const data = await res.json();
+
+    if (data.status === 'banned') {
+      err.textContent = `계정이 정지되었습니다. 정지 해제 일시: ${data.banned_until}`;
+      err.style.display = 'block';
+      return; // 로그인 화면에 그대로 머무름
+    }
+
+    if (!res.ok) {
+      err.textContent = '로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+      err.style.display = 'block';
+      return;
+    }
+
+    MY_NAME = id;
+    $id('playerName').textContent = id;
+    $id('playerAvatar').textContent = id.slice(0, 2);
+    $id('p1Label').textContent = id;
+    $id('p1BannerName').textContent = id;
+    $id('goP1Name').textContent = `🎮 ${id}`;
+    $id('loginOverlay').style.display = 'none';
+
+    if (data.is_muted) applyChatMuted(true); // 채팅 금지 계정 — 채팅 입력창을 미리 막아둠
+  } catch (fetchErr) {
+    console.warn('로그인 요청 실패:', fetchErr);
+    err.textContent = '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.';
+    err.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '로그인'; }
+  }
 }
 
 function submitNickname() {
