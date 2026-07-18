@@ -21,7 +21,11 @@ search_client = SearchClient(
     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
 )
 
-def search_rag_documents(query, top_n=3, strictness_level=1): # 테스트를 위해 우선 1로 세팅
+#strictness_level=2 → 1: 지금 2는 컷오프가 1.0인데 실제 점수는 0.77~0.90이라 전부 걸러져서 0건이 됐습니다. 1은 컷오프가 0.0이라 필터링 없이 검색 결과를 그대로 씁니다. 
+# 이 한 글자가 "매칭된 문서 없음" 문제의 직접적인 해결책입니다.
+#top_n=3 → 8: 이 판정은 4개 카테고리를 동시에 채점해야 하는데, 3개만 가져오면 욕설 기준은 와도 패드립·폭력성 기준이 안 올 수 있습니다. 
+# 청크가 17개뿐이니 8개를 가져와도 부담 없고, 오히려 정확도에 유리합니다.
+def search_rag_documents(query, top_n=8, strictness_level=1): # 테스트를 위해 우선 1로 세팅
     try:
         # 1. 사용자의 질문을 임베딩 모델을 사용해 벡터(숫자 배열)로 실시간 변환
         embedding_response = ai_client.embeddings.create(
@@ -47,7 +51,7 @@ def search_rag_documents(query, top_n=3, strictness_level=1): # 테스트를 위
         )
         
         # strictness 커트라인 설정
-        thresholds = {1: 0.0, 2: 1.0, 3: 1.5, 4: 2.0, 5: 2.5}
+        thresholds = {1: 0.0, 2: 0.5, 3: 0.8, 4: 1.0, 5: 1.2}
         cutoff_score = thresholds.get(strictness_level, 0.0)
         
         context_chunks = []
