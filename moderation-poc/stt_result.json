@@ -1,0 +1,313 @@
+[
+  {
+    "Id": "2456379202d14943bee54ea9405f3dba",
+    "RecognitionStatus": "Success",
+    "Offset": 20800000,
+    "Duration": 22800000,
+    "Channel": 0,
+    "DisplayText": "이건 너무한 거 아니냐고 **?",
+    "NBest": [
+      {
+        "Confidence": 0.79734147,
+        "Lexical": "이건 너무한 거 아니냐고 씨발",
+        "ITN": "이건 너무한 거 아니냐고 씨발",
+        "MaskedITN": "이건 너무한 거 아니냐고 **",
+        "Display": "이건 너무한 거 아니냐고 **?",
+        "Words": [
+          {
+            "Word": "이건",
+            "Offset": 20800000,
+            "Duration": 3600000
+          },
+          {
+            "Word": "너무한",
+            "Offset": 24400000,
+            "Duration": 5600000
+          },
+          {
+            "Word": "거",
+            "Offset": 30000000,
+            "Duration": 800000
+          },
+          {
+            "Word": "아니냐고",
+            "Offset": 30800000,
+            "Duration": 7200000
+          },
+          {
+            "Word": "씨발",
+            "Offset": 39200000,
+            "Duration": 4400000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.8164384,
+        "Lexical": "이건 넘어간 거 아니냐고 씨발",
+        "ITN": "이건 넘어간 거 아니냐고 씨발",
+        "MaskedITN": "이건 넘어간 거 아니냐고 씨발",
+        "Display": "이건 넘어간 거 아니냐고 씨발",
+        "Words": [
+          {
+            "Word": "이건",
+            "Offset": 20800000,
+            "Duration": 3600000
+          },
+          {
+            "Word": "넘어간",
+            "Offset": 24400000,
+            "Duration": 5600000
+          },
+          {
+            "Word": "거",
+            "Offset": 30000000,
+            "Duration": 800000
+          },
+          {
+            "Word": "아니냐고",
+            "Offset": 30800000,
+            "Duration": 7200000
+          },
+          {
+            "Word": "씨발",
+            "Offset": 39200000,
+            "Duration": 4400000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.6757481,
+        "Lexical": "이건 넘어간 거 아니냐고 시발",
+        "ITN": "이건 넘어간 거 아니냐고 시발",
+        "MaskedITN": "이건 넘어간 거 아니냐고 시발",
+        "Display": "이건 넘어간 거 아니냐고 시발",
+        "Words": [
+          {
+            "Word": "이건",
+            "Offset": 20800000,
+            "Duration": 3600000
+          },
+          {
+            "Word": "넘어간",
+            "Offset": 24400000,
+            "Duration": 5600000
+          },
+          {
+            "Word": "거",
+            "Offset": 30000000,
+            "Duration": 800000
+          },
+          {
+            "Word": "아니냐고",
+            "Offset": 30800000,
+            "Duration": 7200000
+          },
+          {
+            "Word": "시발",
+            "Offset": 38000000,
+            "Duration": 5600000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.8136009,
+        "Lexical": "이건 너무한 거 아니냐고",
+        "ITN": "이건 너무한 거 아니냐고",
+        "MaskedITN": "이건 너무한 거 아니냐고",
+        "Display": "이건 너무한 거 아니냐고",
+        "Words": [
+          {
+            "Word": "이건",
+            "Offset": 20800000,
+            "Duration": 3600000
+          },
+          {
+            "Word": "너무한",
+            "Offset": 24400000,
+            "Duration": 5600000
+          },
+          {
+            "Word": "거",
+            "Offset": 30000000,
+            "Duration": 800000
+          },
+          {
+            "Word": "아니냐고",
+            "Offset": 30800000,
+            "Duration": 7200000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.83760583,
+        "Lexical": "이건 넘어간 거 아니냐고",
+        "ITN": "이건 넘어간 거 아니냐고",
+        "MaskedITN": "이건 넘어간 거 아니냐고",
+        "Display": "이건 넘어간 거 아니냐고",
+        "Words": [
+          {
+            "Word": "이건",
+            "Offset": 20800000,
+            "Duration": 3600000
+          },
+          {
+            "Word": "넘어간",
+            "Offset": 24400000,
+            "Duration": 5600000
+          },
+          {
+            "Word": "거",
+            "Offset": 30000000,
+            "Duration": 800000
+          },
+          {
+            "Word": "아니냐고",
+            "Offset": 30800000,
+            "Duration": 7200000
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Id": "a0f70a1ddc6949b38f82165c70109f0e",
+    "RecognitionStatus": "Success",
+    "Offset": 53900000,
+    "Duration": 4000000,
+    "Channel": 0,
+    "DisplayText": "이거는?",
+    "NBest": [
+      {
+        "Confidence": 0.25150323,
+        "Lexical": "이거는",
+        "ITN": "이거는",
+        "MaskedITN": "이거는",
+        "Display": "이거는?",
+        "Words": [
+          {
+            "Word": "이거는",
+            "Offset": 53900000,
+            "Duration": 4000000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.054639596,
+        "Lexical": "이건",
+        "ITN": "이건",
+        "MaskedITN": "이건",
+        "Display": "이건",
+        "Words": [
+          {
+            "Word": "이건",
+            "Offset": 53900000,
+            "Duration": 2800000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.038591262,
+        "Lexical": "이거",
+        "ITN": "이거",
+        "MaskedITN": "이거",
+        "Display": "이거",
+        "Words": [
+          {
+            "Word": "이거",
+            "Offset": 53900000,
+            "Duration": 1600000
+          }
+        ]
+      },
+      {
+        "Confidence": 0.02865813,
+        "Lexical": "이걸",
+        "ITN": "이걸",
+        "MaskedITN": "이걸",
+        "Display": "이걸",
+        "Words": [
+          {
+            "Word": "이걸",
+            "Offset": 53900000,
+            "Duration": 2000000
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Id": "cf4cad2a165b4294bd1940a1ae588a70",
+    "RecognitionStatus": "Success",
+    "Offset": 70700000,
+    "Duration": 400000,
+    "Channel": 0,
+    "DisplayText": "아.",
+    "NBest": [
+      {
+        "Confidence": 0.68430537,
+        "Lexical": "아",
+        "ITN": "아",
+        "MaskedITN": "아",
+        "Display": "아.",
+        "Words": [
+          {
+            "Word": "아",
+            "Offset": 70700000,
+            "Duration": 400000
+          }
+        ]
+      },
+      {
+        "Confidence": 0,
+        "Lexical": "",
+        "ITN": "",
+        "MaskedITN": "",
+        "Display": ""
+      }
+    ]
+  },
+  {
+    "Id": "72edfe31b49f44bcba1212ba2b694cf8",
+    "RecognitionStatus": "Success",
+    "Offset": 4300000,
+    "Duration": 23600000,
+    "Channel": 0,
+    "DisplayText": "** 개새끼야 죽여버리기 전에.",
+    "NBest": [
+      {
+        "Confidence": 0.855781,
+        "Lexical": "닥쳐 개새끼야 죽여버리기 전에",
+        "ITN": "닥쳐 개새끼야 죽여버리기 전에",
+        "MaskedITN": "** 개새끼야 죽여버리기 전에",
+        "Display": "** 개새끼야 죽여버리기 전에.",
+        "Words": []
+      },
+      {
+        "Confidence": 0.7090698,
+        "Lexical": "뭐 닥쳐 개새끼야 죽여버리기 전에",
+        "ITN": "뭐 닥쳐 개새끼야 죽여버리기 전에",
+        "MaskedITN": "뭐 닥쳐 개새끼야 죽여버리기 전에",
+        "Display": "뭐 닥쳐 개새끼야 죽여버리기 전에",
+        "Words": []
+      }
+    ]
+  },
+  {
+    "Id": "c10ab06f32224f69972157e3c947b9a1",
+    "RecognitionStatus": "Success",
+    "Offset": 39500000,
+    "Duration": 5600000,
+    "Channel": 0,
+    "DisplayText": "아, 근데 이거는?",
+    "NBest": [
+      {
+        "Confidence": 0.80632734,
+        "Lexical": "아 근데 이거는",
+        "ITN": "아 근데 이거는",
+        "MaskedITN": "아 근데 이거는",
+        "Display": "아, 근데 이거는?",
+        "Words": []
+      }
+    ]
+  }
+]
