@@ -14,7 +14,7 @@ try:
 except Exception as e:
     client = None
 
-DEPLOYMENT_NAME = "gpt-5-mini"
+DEPLOYMENT_NAME = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-5-mini")
 
 SYSTEM_PROMPT = """당신은 게임 채팅 유해발언 심사역입니다. 아래 4개 카테고리 기준에 따라 채팅 한 줄을 분석하세요.
 
@@ -64,12 +64,19 @@ async def analyze_chat(text: str) -> dict:
         return {"final_level": 0, "reason": "OpenAI client not configured"}
 
     try:
-        response = client.responses.create(
-            model=DEPLOYMENT_NAME,
-            instructions=SYSTEM_PROMPT,
-            input=text,
-        )
-        raw = response.output_text
+        kwargs = {
+            "model": DEPLOYMENT_NAME,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": text}
+            ],
+        }
+        # o1, o3 등 reasoning 계열 모델(혹은 프로젝트 헌법상의 gpt-5-mini)일 때만 reasoning_effort 적용
+        if any(k in DEPLOYMENT_NAME.lower() for k in ["o1", "o3", "gpt-5"]):
+            kwargs["reasoning_effort"] = "low"
+
+        response = client.chat.completions.create(**kwargs)
+        raw = response.choices[0].message.content
         cleaned = raw.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.strip("`")

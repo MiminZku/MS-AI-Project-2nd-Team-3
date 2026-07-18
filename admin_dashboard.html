@@ -245,20 +245,37 @@
   </div>
 
   <script>
-    const reports = [
-      { id: 101, created_at: '2026-07-16 14:10', reporter_id: 'user_01', reported_id: 'user_02', status: 'PENDING', result: '대기', content: '욕설/비하 발언', reported_message: '병신아 니가 비켜', review_reason: '' },
-      { id: 102, created_at: '2026-07-16 12:40', reporter_id: 'user_03', reported_id: 'user_04', status: 'MANUAL_REVIEW_REQUIRED', result: '수동 검토 필요', content: '매크로 사용 의심 패턴 로그 첨부', reported_message: '안녕하세요', review_reason: '' },
-      { id: 103, created_at: '2026-07-16 09:20', reporter_id: 'user_05', reported_id: 'user_06', status: 'COMPLETED', result: '제재 처리 완료', content: '반복적 욕설 및 비하 발언', reported_message: '계속 그렇게 하면 가만 안 둔다', review_reason: '반복적 욕설' },
-      { id: 104, created_at: '2026-07-15 22:10', reporter_id: 'user_07', reported_id: 'user_02', status: 'DISMISSED', result: '신고 취소', content: '오해로 확인된 단순 발언', reported_message: '다음 판 같이 하실래요?', review_reason: '허위 신고로 확인됨' }
-    ];
-    const sanctions = [
-      { id: 1, created_at: '2026-07-16 10:00', user_id: 'user_02', ai_result: '욕설 3단계', type: 'MUTE', duration_days: 7 },
-      { id: 2, created_at: '2026-07-15 18:05', user_id: 'user_04', ai_result: '매크로 사용 의심', type: 'BAN', duration_days: 30 }
-    ];
-    const appeals = [
-      { id: 1, report_id: 101, user_id: 'user_02', reason: '허위 신고로 판단됨', status: 'PENDING' },
-      { id: 2, report_id: 104, user_id: 'user_07', reason: '신고 사유가 불충분함', status: 'REJECTED' }
-    ];
+    let reports = [];
+    let sanctions = [];
+    let appeals = [];
+
+    async function fetchData() {
+      try {
+        const [repRes, sancRes, appRes] = await Promise.all([
+          fetch('http://localhost:3000/api/admin/reports'),
+          fetch('http://localhost:3000/api/admin/sanctions'),
+          fetch('http://localhost:3000/api/admin/appeals')
+        ]);
+        reports = await repRes.json();
+        sanctions = await sancRes.json();
+        appeals = await appRes.json();
+        
+        // 데이터 포맷팅
+        reports = reports.map(r => ({
+          ...r,
+          result: r.status === 'PENDING' ? '대기' : r.status === 'MANUAL_REVIEW_REQUIRED' ? '수동 검토 필요' : r.status === 'COMPLETED' ? '제재 처리 완료' : '신고 취소',
+          content: r.content_text || '내용 없음',
+          reported_message: r.content_text || ''
+        }));
+        
+        updateSummary();
+        renderReports();
+        renderSanctions();
+        renderAppeals();
+      } catch (err) {
+        console.error("데이터 로드 실패:", err);
+      }
+    }
     let activeReportId = null;
     let activeSanctionType = 'MUTE';
 
@@ -335,27 +352,40 @@
       document.getElementById('sheetOverlay').style.display = 'none';
       activeReportId = null;
     }
-    function applyDecision() {
+    async function applyDecision() {
       const report = reports.find(r => r.id === activeReportId);
       if (!report) return;
       const reason = document.getElementById('sheetReason').value.trim();
       const sanctionType = activeSanctionType;
       const durationDays = Number(document.getElementById('sheetDurationDays').value) || 7;
-      report.review_reason = reason || '검토 기록 없음';
-      if (sanctionType === 'DISMISS') {
-        report.status = 'DISMISSED';
-        report.result = '신고 취소';
-      } else {
-        report.status = 'COMPLETED';
-        report.result = '제재 처리 완료';
-        sanctions.unshift({ id: sanctions.length + 1, created_at: '2026-07-16 15:00', user_id: report.reported_id, ai_result: reason || '제재 자동 적용', type: sanctionType, duration_days: durationDays });
+      
+      try {
+        if (sanctionType === 'DISMISS') {
+          await fetch(`http://localhost:3000/api/admin/reports/${activeReportId}/dismiss`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ reason: reason || '오탐', reviewer_id: 'admin01' })
+          });
+        } else {
+          let sTypePayload = 'mute_7d';
+          if (sanctionType === 'MUTE') {
+             sTypePayload = durationDays <= 1 ? 'mute_1d' : 'mute_7d';
+          } else if (sanctionType === 'BAN') {
+             sTypePayload = 'ban_perm';
+          }
+          await fetch(`http://localhost:3000/api/admin/reports/${activeReportId}/sanction`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ sanction_type: sTypePayload, reason: reason || '관리자 제재', reviewer_id: 'admin01' })
+          });
+        }
+        closeReviewSheet();
+        await fetchData();
+        showToast(sanctionType === 'DISMISS' ? '신고를 취소 처리했습니다.' : '제재를 적용했습니다.');
+      } catch (err) {
+        console.error(err);
+        showToast("처리 중 오류가 발생했습니다.");
       }
-      closeReviewSheet();
-      updateSummary();
-      renderReports();
-      renderSanctions();
-      renderAppeals();
-      showToast(sanctionType === 'DISMISS' ? '신고를 취소 처리했습니다.' : '제재를 적용했습니다.');
     }
     document.getElementById('loginBtn').addEventListener('click', () => {
       const id = document.getElementById('loginId').value.trim();
@@ -365,7 +395,7 @@
         msg.textContent = '';
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboardWrap').style.display = 'block';
-        showPendingAlert();
+        fetchData().then(() => showPendingAlert());
       } else {
         msg.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
       }
