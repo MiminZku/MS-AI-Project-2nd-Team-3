@@ -64,6 +64,34 @@ function selectMode(mode) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   BAN 강제 퇴장 — 게임 도중 서버가 계정을 정지시키면
+   (system 메시지 + 소켓 강제 종료) 로그인 화면으로 돌려보냄
+═══════════════════════════════════════════════════════ */
+function kickToLogin(message) {
+  alert(message || '계정이 정지되어 로그아웃되었습니다.');
+
+  clearInterval(timerInterval);
+  clearTimeout(aiTimeout);
+  clearTimeout(aiMoveTimeout);
+  clearInterval(countdownStep);
+  countdownActive = false;
+  gameActive = false;
+  if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }
+  stopRecording();
+  closeWebRTC();
+
+  $id('goOverlay').classList.remove('show');
+  $id('countdownOverlay').classList.remove('show');
+  $id('readyOverlay').classList.remove('show');
+  $id('modeOverlay').style.display = 'none';
+  $id('sidePanel').style.display = 'none';
+
+  MY_NAME = null;
+  $id('loginId').value = '';
+  $id('loginOverlay').style.display = 'flex';
+}
+
+/* ═══════════════════════════════════════════════════════
    READY SCREEN — 모드 선택 후, '게임 시작'을 눌러야 카운트다운이 시작됨
 ═══════════════════════════════════════════════════════ */
 function showReadyScreen(mode) {

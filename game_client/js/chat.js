@@ -7,6 +7,7 @@ function nowStr() {
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function sendMsg() {
+  if (chatMuted) return;
   const inp = $id('chatInput'), text = inp.value.trim();
   if (!text) return;
   inp.value = '';
@@ -21,11 +22,30 @@ function sendMsg() {
 $id('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') sendMsg(); });
 
 /* ═══════════════════════════════════════════════════════
+   채팅 금지(MUTE) — 로그인 응답의 is_muted, 또는 게임 중 서버의
+   {"type":"system", "text":"..."} 메시지로 트리거됨
+═══════════════════════════════════════════════════════ */
+let chatMuted = false;
+
+function applyChatMuted(muted, message) {
+  chatMuted = muted;
+  const input = $id('chatInput');
+  const sendButton = $id('sendBtn');
+  if (input) {
+    input.disabled = muted;
+    input.placeholder = muted ? '채팅 금지 상태입니다' : '메시지 입력...';
+  }
+  if (sendButton) sendButton.disabled = muted;
+  if (muted && message) appendSystemMsg(`— ${escHtml(message)} —`);
+}
+
+/* ═══════════════════════════════════════════════════════
    WEBSOCKET CHAT
 ═══════════════════════════════════════════════════════ */
 let ws = null;
 let MY_NAME = null; // auth.js의 닉네임 입력에서 설정됨 (모드 선택 전에 반드시 정해짐)
 let currentOpponentName = null; // 서버가 'opponent' 메시지로 알려줌 (같은 방에 상대가 있을 때만 값이 있음)
+let pendingBanMessage = null; // BAN system 메시지를 받으면 채워두고, 뒤이어 오는 onclose에서 소비함
 const FIXED_SERVER_ADDR = '172.16.30.143:3000';
 
 function opponentName() {
@@ -81,6 +101,14 @@ function connectChat() {
       } else if (data.type === 'full') {
         setChatStatus('🔴 방이 가득 참', 'var(--danger)');
         appendSystemMsg('— 이미 다른 두 명이 접속 중입니다 —');
+      } else if (data.type === 'system') {
+        const text = typeof data.text === 'string' ? data.text : '';
+        if (text.includes('정지') || text.includes('강제 퇴장')) {
+          // BAN 알림 — 서버가 이 메시지 직후 소켓을 강제로 닫으므로, 실제 처리는 onclose에서 함
+          pendingBanMessage = text || '계정이 정지되어 강제 퇴장되었습니다.';
+        } else {
+          applyChatMuted(true, text || '채팅이 금지되었습니다.');
+        }
       }
     };
 
@@ -94,6 +122,11 @@ function connectChat() {
       setChatStatus('🔴 연결 끊김', 'var(--danger)');
       setPresence(1);
       currentOpponentName = null;
+      if (pendingBanMessage) {
+        const msg = pendingBanMessage;
+        pendingBanMessage = null;
+        kickToLogin(msg);
+      }
     };
   } catch (err) {
     setChatStatus('🔴 WebSocket 오류', 'var(--danger)');
