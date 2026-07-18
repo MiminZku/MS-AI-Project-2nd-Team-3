@@ -21,7 +21,7 @@ search_client = SearchClient(
     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
 )
 
-def search_rag_documents(query, top_n=3, strictness_level=2): # 테스트를 위해 우선 1로 세팅
+def search_rag_documents(query, top_n=3, strictness_level=1): # 테스트를 위해 우선 1로 세팅
     try:
         # 1. 사용자의 질문을 임베딩 모델을 사용해 벡터(숫자 배열)로 실시간 변환
         embedding_response = ai_client.embeddings.create(
@@ -90,14 +90,54 @@ def analyze_chat_with_rag(user_chat):
 """
 
     # 3단계: 순수 Chat Completion 호출 (글로벌 표준 제약에 걸리지 않음)
-    response = ai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": dynamic_system_prompt},
-            {"role": "user", "content": user_chat}
-        ]
-    )
-    return response.choices[0].message.content
+    try:
+        response = ai_client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[
+                {"role": "system", "content": dynamic_system_prompt},
+                {"role": "user", "content": user_chat}
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        import json
+        error_msg = str(e)
+        
+        # 1. 콘텐츠 필터링에 의한 에러인지 구체적으로 구별합니다.
+        is_content_filter = False
+        
+        # openai.BadRequestError의 경우 e.body 구조에 'error'가 포함되어 있습니다.
+        if hasattr(e, 'body') and isinstance(e.body, dict):
+            error_data = e.body.get('error', {})
+            if isinstance(error_data, dict):
+                if error_data.get('code') == 'content_filter':
+                    is_content_filter = True
+                elif 'content management policy' in error_data.get('message', '').lower():
+                    is_content_filter = True
+        
+        # 에러 메시지 문자열에 키워드가 포함되었는지 보조적으로 검사합니다.
+        if not is_content_filter and ('content_filter' in error_msg.lower() or 'content management policy' in error_msg.lower()):
+            is_content_filter = True
+
+        if is_content_filter:
+            # 콘텐츠 필터에 의해 입력 자체가 차단된 경우에만 안전 장치로 Lv.4 판정을 내립니다.
+            fallback_result = {
+                "category_levels": {
+                    "욕설강도": 4, 
+                    "음란성발언": 4, 
+                    "패드립": 4, 
+                    "폭력성발언": 4
+                },
+                "auxiliary_tags": ["콘텐츠필터차단"],
+                "urgent_flags": ["필터차단"],
+                "final_level": 4,
+                "confidence": 1.0,
+                "reason": f"Azure Content Safety 필터에 의해 입력이 차단되었습니다. (원인: {error_msg[:120]})"
+            }
+            return json.dumps(fallback_result, ensure_ascii=False)
+        else:
+            # 엔드포인트/인증키가 다르거나 파라미터가 잘못되어 발생하는 일반적인 에러는 그대로 에러 메시지를 반환합니다.
+            return f"🚨 API 에러가 발생했습니다: {e}"
 
 def main():
     print("=" * 60)
