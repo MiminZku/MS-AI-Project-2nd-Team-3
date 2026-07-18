@@ -2,6 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime, timezone, timedelta
 import os
 import urllib.parse
 import json
@@ -32,12 +33,20 @@ async def handle_login(req: LoginRequest):
     try:
         user = db.query(User).filter(User.id == req.user_id).first()
         if not user:
-            user = User(id=req.user_id, is_muted=False)
+            user = User(id=req.user_id)
             db.add(user)
             db.commit()
             db.refresh(user)
+            
+        now = datetime.now(timezone.utc)
+        if user.banned_until and user.banned_until > now:
+            return {"status": "banned", "banned_until": user.banned_until.isoformat()}
+            
+        is_muted = False
+        if user.muted_until and user.muted_until > now:
+            is_muted = True
         
-        return {"status": "ok", "user_id": user.id, "is_muted": user.is_muted}
+        return {"status": "ok", "user_id": user.id, "is_muted": is_muted}
     except Exception as e:
         print(f"Login Error: {e}")
         return Response(content="error", status_code=500)
@@ -58,11 +67,13 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
         
         if final_level > 0:
             db = SessionLocal()
+            sanction_type = "BAN" if final_level >= 4 else "MUTE"
+            duration_days = 30 if sanction_type == "BAN" else 7
             try:
                 sanction = Sanction(
                     user_id=target_user_id,
-                    type="KICK",
-                    duration_days=1,
+                    type=sanction_type,
+                    duration_days=duration_days,
                     ai_result=json.dumps(result, ensure_ascii=False)
                 )
                 db.add(sanction)
@@ -70,15 +81,27 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                 db_report = db.query(Report).filter(Report.id == report_id).first()
                 if db_report:
                     db_report.status = "COMPLETED"
+                    
+                target_user = db.query(User).filter(User.id == target_user_id).first()
+                if target_user:
+                    now = datetime.now(timezone.utc)
+                    if sanction_type == "BAN":
+                        target_user.banned_until = now + timedelta(days=duration_days)
+                    else:
+                        target_user.muted_until = now + timedelta(days=duration_days)
+                        
                 db.commit()
             except Exception as e:
                 print(f"Background DB Error: {e}")
             finally:
                 db.close()
 
-            # 실시간 소켓 강퇴
-            await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다.", "time": "now"}})
-            await manager.kick_user(target_user_id, f"욕설 감지 (Lv.{final_level})")
+            if sanction_type == "BAN":
+                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 계정 정지되었습니다.", "time": "now"}})
+                await manager.ban_user(target_user_id, f"욕설 감지 (Lv.{final_level})")
+            else:
+                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 채팅 금지되었습니다.", "time": "now"}})
+                await manager.mute_user(target_user_id, f"욕설 감지 (Lv.{final_level})")
 
 @router.post("/api/report")
 async def handle_report(req: ReportRequest, background_tasks: BackgroundTasks):
@@ -134,12 +157,27 @@ async def websocket_endpoint(websocket: WebSocket):
             if msg_type == "identify":
                 user = data.get("user")
                 if user and isinstance(user, str) and user.strip():
-                    manager.clients_info[websocket] = user[:40]
+                    username = user[:40]
+                    manager.clients_info[websocket] = username
+                    db = SessionLocal()
+                    try:
+                        db_user = db.query(User).filter(User.id == username).first()
+                        if db_user and db_user.muted_until and db_user.muted_until > datetime.now(timezone.utc):
+                            manager.muted_users.add(username)
+                        elif username in manager.muted_users:
+                            manager.muted_users.remove(username)
+                    except Exception as e:
+                        print(f"Identify check error: {e}")
+                    finally:
+                        db.close()
                     await manager.broadcast_opponent_info()
             
             elif msg_type == "chat":
                 user = data.get("user")
                 text = data.get("text")
+                if manager.is_user_muted(user):
+                    await websocket.send_json({"type": "system", "text": "채팅이 금지된 상태입니다."})
+                    continue
                 if isinstance(user, str) and isinstance(text, str):
                     text = text.strip()[:500]
                     if text:

@@ -8,6 +8,7 @@ class GameStateManager:
         self.clients_info: Dict[WebSocket, str] = {} # ws -> nickname
         self.history: List[Dict[str, Any]] = []
         self.latest_recording_by_user: Dict[str, Dict[str, Any]] = {} # user -> {"filepath": str, "time": timestamp}
+        self.muted_users: set = set()
         self.MAX_PLAYERS = 2
         self.MAX_HISTORY = 50
 
@@ -31,7 +32,11 @@ class GameStateManager:
         if len(self.active_connections) == 0:
             self.history.clear()
 
-    async def kick_user(self, nickname: str, reason: str):
+    def is_user_muted(self, nickname: str) -> bool:
+        return nickname in self.muted_users
+
+    async def mute_user(self, nickname: str, reason: str):
+        self.muted_users.add(nickname)
         target_ws = None
         for ws, name in self.clients_info.items():
             if name == nickname:
@@ -40,7 +45,20 @@ class GameStateManager:
         
         if target_ws:
             try:
-                await target_ws.send_json({"type": "system", "text": f"강제 퇴장되었습니다: {reason}"})
+                await target_ws.send_json({"type": "system", "text": f"채팅이 금지되었습니다: {reason}"})
+            except:
+                pass
+
+    async def ban_user(self, nickname: str, reason: str):
+        target_ws = None
+        for ws, name in self.clients_info.items():
+            if name == nickname:
+                target_ws = ws
+                break
+        
+        if target_ws:
+            try:
+                await target_ws.send_json({"type": "system", "text": f"계정이 정지(강제 퇴장)되었습니다: {reason}"})
                 await target_ws.close()
             except:
                 pass
