@@ -5,8 +5,9 @@ from database import Base
 class User(Base):
     __tablename__ = "users"
     id = Column(String(50), primary_key=True, index=True)
-    is_muted = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    muted_until = Column(DateTime(timezone=True), nullable=True)
+    banned_until = Column(DateTime(timezone=True), nullable=True)
 
 class Admin(Base):
     __tablename__ = "admins"

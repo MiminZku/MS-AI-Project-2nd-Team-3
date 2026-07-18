@@ -26,14 +26,17 @@ $id('chatInput').addEventListener('keydown', e => { if (e.key==='Enter') sendMsg
 let ws = null;
 let MY_NAME = null; // auth.js의 닉네임 입력에서 설정됨 (모드 선택 전에 반드시 정해짐)
 let currentOpponentName = null; // 서버가 'opponent' 메시지로 알려줌 (같은 방에 상대가 있을 때만 값이 있음)
-const FIXED_SERVER_ADDR = '172.16.30.143:3000';
+function getServerAddr() {
+  const input = document.getElementById('serverAddr');
+  return input ? input.value.trim() : 'localhost:3000';
+}
 
 function opponentName() {
   return currentOpponentName || '상대방';
 }
 
 function getHttpBase() {
-  return `http://${FIXED_SERVER_ADDR}`;
+  return `http://${getServerAddr()}`;
 }
 
 function connectChat() {
@@ -45,7 +48,7 @@ function connectChat() {
     ws.close();
   }
 
-  const url = `ws://${FIXED_SERVER_ADDR}`;
+  const url = `ws://${getServerAddr()}`;
   setChatStatus('🟡 연결 중...', '#FF9F43');
   try {
     ws = new WebSocket(url);
