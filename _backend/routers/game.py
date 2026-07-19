@@ -53,8 +53,30 @@ async def handle_login(req: LoginRequest):
     finally:
         db.close()
 
-async def process_report_task(report_id: int, channel: str, target_user_id: str, content_text: str):
-    if channel == "text" and content_text:
+async def process_report_task(report_id: int, channel: str, target_user_id: str, content_text: str, content_path: str):
+    if channel == "voice" and content_path:
+        from services.stt_logic import transcribe_audio
+        stt_text = await transcribe_audio(content_path)
+        print(f"\n======================================")
+        print(f"🎤 [STT 변환 완료] 대상: {target_user_id}")
+        print(f"변환된 텍스트: {stt_text}")
+        print(f"======================================\n")
+        content_text = stt_text
+        
+        # 변환된 텍스트를 DB에 업데이트
+        if content_text:
+            db = SessionLocal()
+            try:
+                db_report = db.query(Report).filter(Report.id == report_id).first()
+                if db_report:
+                    db_report.content_text = content_text
+                db.commit()
+            except Exception as e:
+                print(f"STT DB Update Error: {e}")
+            finally:
+                db.close()
+
+    if content_text:
         result = await analyze_chat(content_text)
         
         print(f"\n======================================")
@@ -67,12 +89,20 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
         
         if final_level > 0:
             db = SessionLocal()
-            sanction_type = "BAN" if final_level >= 4 else "MUTE"
-            duration_days = 30 if sanction_type == "BAN" else 7
             try:
+                # 과거 제재 내역 조회 (가중 처벌용 룰베이스)
+                past_sanctions = db.query(Sanction).filter(Sanction.user_id == target_user_id).count()
+                
+                if past_sanctions == 0:
+                    duration_days = 1
+                elif past_sanctions == 1:
+                    duration_days = 7
+                else:
+                    duration_days = 9999
+                
                 sanction = Sanction(
                     user_id=target_user_id,
-                    type=sanction_type,
+                    type="KICK_AND_BAN",
                     duration_days=duration_days,
                     ai_result=json.dumps(result, ensure_ascii=False)
                 )
@@ -85,10 +115,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                 target_user = db.query(User).filter(User.id == target_user_id).first()
                 if target_user:
                     now = datetime.now(timezone.utc)
-                    if sanction_type == "BAN":
-                        target_user.banned_until = now + timedelta(days=duration_days)
-                    else:
-                        target_user.muted_until = now + timedelta(days=duration_days)
+                    target_user.banned_until = now + timedelta(days=duration_days)
                         
                 db.commit()
             except Exception as e:
@@ -96,15 +123,38 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
             finally:
                 db.close()
 
-            if sanction_type == "BAN":
-                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 계정 정지되었습니다.", "time": "now"}})
-                await manager.ban_user(target_user_id, f"욕설 감지 (Lv.{final_level})")
-            else:
-                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 채팅 금지되었습니다.", "time": "now"}})
-                await manager.mute_user(target_user_id, f"욕설 감지 (Lv.{final_level})")
+            # 실시간 소켓 강퇴
+            await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({past_sanctions+1}회차 누적, {duration_days}일 정지)", "time": "now"}})
+            await manager.kick_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {past_sanctions+1}회차 누적)")
+        else:
+            # 제재 대상이 아니거나, HITL 수동 검토가 필요한 케이스
+            db = SessionLocal()
+            try:
+                db_report = db.query(Report).filter(Report.id == report_id).first()
+                if db_report:
+                    if final_level == -1 or result.get("confidence", 1.0) < 0.7 or result.get("needs_human_review", False):
+                        db_report.status = "PENDING_HITL"
+                        db.commit()
+                        from routers.admin import notify_admins
+                        await notify_admins("new_hitl", {
+                            "report_id": report_id,
+                            "reporter": db_report.reporter_id,
+                            "target": target_user_id,
+                            "text": content_text,
+                            "reason": result.get("reason", "Low confidence or Filtered")
+                        })
+                    else:
+                        db_report.status = "COMPLETED"
+                        db.commit()
+            except Exception as e:
+                print(f"Background DB Error (HITL): {e}")
+            finally:
+                db.close()
 
 @router.post("/api/report")
 async def handle_report(req: ReportRequest, background_tasks: BackgroundTasks):
+    print(f"\n🚨 [신고 접수] 신고자: {req.reporter_id}, 대상: {req.target_user_id}, 채널: {req.channel}")
+    
     db = SessionLocal()
     try:
         # 안전장치: DB에 유저가 없을 경우 강제 생성 (외래키 에러 방지)
@@ -128,7 +178,7 @@ async def handle_report(req: ReportRequest, background_tasks: BackgroundTasks):
         report_id = new_report.id
 
         # OpenAI 검사 및 제재 로직을 백그라운드로 위임
-        background_tasks.add_task(process_report_task, report_id, req.channel, req.target_user_id, req.content_text)
+        background_tasks.add_task(process_report_task, report_id, req.channel, req.target_user_id, req.content_text, req.content_path)
                 
         return {"status": "ok", "report_id": report_id}
     except Exception as e:

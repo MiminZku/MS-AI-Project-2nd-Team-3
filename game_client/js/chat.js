@@ -79,7 +79,7 @@ function connectChat() {
         }
         updateOpponentDisplay();
         if (data.name) maybeStartWebRTC();
-      } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate') {
+      } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'webrtc_renegotiate') {
         handleWebRtcMessage(data);
       } else if (data.type === 'full') {
         setChatStatus('🔴 방이 가득 참', 'var(--danger)');
