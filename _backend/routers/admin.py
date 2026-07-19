@@ -6,12 +6,43 @@ from typing import Literal
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import asyncio
+import json
 
 from services.game_state import manager  # 실시간 웹소켓 제어를 위한 manager 연동
 
 router = APIRouter()
+
+admin_queues = []
+
+async def notify_admins(event_type: str, data: dict):
+    message = {"type": event_type, "data": data}
+    for q in admin_queues:
+        await q.put(message)
+
+@router.get("/api/admin/stream")
+async def admin_stream(request: Request):
+    q = asyncio.Queue()
+    admin_queues.append(q)
+    
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=1.0)
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+        finally:
+            if q in admin_queues:
+                admin_queues.remove(q)
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # .env 파일은 _backend 디렉토리에 있으므로 상위 경로로 지정

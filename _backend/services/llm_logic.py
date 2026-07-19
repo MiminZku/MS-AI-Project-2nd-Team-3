@@ -84,4 +84,5 @@ async def analyze_chat(text: str) -> dict:
         return json.loads(cleaned)
     except Exception as e:
         print(f"[OpenAI Error] {e}")
-        return {"final_level": 0, "reason": "Error during analysis"}
+        # Content Filter 등에 막히거나 API 에러 발생 시 HITL 수동 검토를 유도하기 위해 -1 반환
+        return {"final_level": -1, "reason": f"Error during analysis: {e}"}
