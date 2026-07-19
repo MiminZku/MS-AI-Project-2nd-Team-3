@@ -56,14 +56,33 @@ async function handleMicConsentChange(event) {
   if (!event.target.checked) return;
 
   const stream = await ensureMicStream();
-  if (stream) return;
-
-  event.target.checked = false;
-  recordingConsented = false;
-  if (!window.isSecureContext && location.hostname !== 'localhost') {
-    showToast('마이크는 HTTPS 또는 localhost에서만 사용할 수 있습니다.');
-  } else {
-    showToast('마이크 권한이 거부되었거나 사용할 수 없습니다.');
+  if (!stream) {
+    event.target.checked = false;
+    recordingConsented = false;
+    if (!window.isSecureContext && location.hostname !== 'localhost') {
+      showToast('마이크는 HTTPS 또는 localhost에서만 사용할 수 있습니다.');
+    } else {
+      showToast('마이크 권한이 거부되었거나 사용할 수 없습니다.');
+    }
+    return;
+  }
+  
+  // 이미 연결된 WebRTC가 있으면 재협상(Renegotiation) 수행
+  if (peerConnection && webRtcCallStarted) {
+    const senders = peerConnection.getSenders();
+    const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
+    if (!hasAudio) {
+      stream.getAudioTracks().forEach(track => {
+        peerConnection.addTrack(track, stream);
+      });
+      // 발신자(ID가 작은 쪽)가 다시 Offer를 보내도록 유도
+      if (String(MY_NAME) < String(currentOpponentName)) {
+        webRtcCallStarted = false;
+        startCall();
+      } else {
+        sendWebRtcMessage({ type: 'webrtc_renegotiate' });
+      }
+    }
   }
 }
 
@@ -321,6 +340,11 @@ async function handleWebRtcMessage(data) {
         await peerConnection.addIceCandidate(candidate);
       } else {
         pendingIceCandidates.push(candidate);
+      }
+    } else if (data.type === 'webrtc_renegotiate') {
+      if (String(MY_NAME) < String(currentOpponentName)) {
+        webRtcCallStarted = false;
+        startCall();
       }
     }
   } catch (err) {
