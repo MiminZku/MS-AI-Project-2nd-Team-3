@@ -3,109 +3,149 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>게임 CS 운영자 대시보드</title>
+    <title>관리자 대시보드</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <section class="login-screen" id="loginScreen">
-      <form class="login-card" id="loginForm">
-        <div class="logo">CS</div>
-        <p class="eyebrow">Operator Console</p>
-        <h1>운영자 로그인</h1>
-        <p class="muted">게임 채팅 신고 검토와 제재 처리를 위한 관리자 화면입니다.</p>
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <h1>관리자 로그인</h1>
+      <p>신고·제재·이의신청을 검토할 관리자 계정으로 접속합니다.</p>
+      <div class="login-field"><label for="loginId">아이디</label><input id="loginId" type="text" placeholder="admin01" /></div>
+      <div class="login-field"><label for="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="admin1234" /></div>
+      <button class="login-btn" id="loginBtn">로그인</button>
+      <div class="login-msg" id="loginMsg"></div>
+    </div>
+  </div>
 
-        <label>
-          <span>운영자 ID</span>
-          <input name="adminId" value="admin01" autocomplete="username" required />
-        </label>
-        <label>
-          <span>비밀번호</span>
-          <input name="password" type="password" value="admin1234" autocomplete="current-password" required />
-        </label>
+  <div class="wrap" id="dashboardWrap" style="display:none;">
+    <div class="header">
+      <div class="brand">
+        <div class="title">관리자 대시보드</div>
+        <div class="sub">유저 · 신고 내역 · 제재 내역 · 이의 신청</div>
+      </div>
+      <div class="admin-pill">관리자: admin01</div>
+    </div>
 
-        <p class="login-error" id="loginError" aria-live="polite"></p>
-        <button class="primary" type="submit">로그인</button>
-        <small>시연 계정: admin01 / admin1234</small>
-      </form>
-    </section>
+    <div class="grid">
+      <div class="card"><div class="label">오늘 접수</div><div class="value" id="statToday">0</div></div>
+      <div class="card"><div class="label">대기 중</div><div class="value danger" id="statPending">0</div></div>
+      <div class="card"><div class="label">처리 완료</div><div class="value success" id="statDone">0</div></div>
+      <div class="card"><div class="label">활성 제재</div><div class="value warn" id="statSanction">0</div></div>
+    </div>
 
-    <main class="dashboard" id="dashboard" hidden>
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="logo">CS</div>
-          <div>
-            <strong>GameGuard Desk</strong>
-            <span>신고 제재 운영 콘솔</span>
-          </div>
+    <div class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="reports">신고 내역</button>
+        <button class="tab" data-tab="sanctions">제재 내역</button>
+        <button class="tab" data-tab="appeals">이의 신청</button>
+      </div>
+
+      <div class="tab-content active" id="reports">
+        <div class="filters">
+          <select id="reportStatusFilter">
+            <option value="all">전체 상태</option>
+            <option value="PENDING">대기</option>
+            <option value="MANUAL_REVIEW_REQUIRED">수동 검토 필요</option>
+            <option value="COMPLETED">처리 완료</option>
+            <option value="DISMISSED">신고 취소</option>
+          </select>
+          <input id="reportSearch" type="text" placeholder="신고자/피신고자 ID 검색" />
         </div>
+        <table>
+          <thead><tr><th>신고번호</th><th>신고 일시</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead>
+          <tbody id="reportBody"></tbody>
+        </table>
+      </div>
 
-        <nav>
-          <button class="active" type="button" data-filter="all">신고 큐</button>
-          <button type="button" data-filter="pending">미처리 신고</button>
-          <button type="button" data-filter="high">고위험 신고</button>
-          <button type="button" data-filter="completed">처리 완료</button>
-        </nav>
-      </aside>
+      <div class="tab-content" id="sanctions">
+        <div class="filters">
+          <select id="sanctionTypeFilter">
+            <option value="all">전체 제재</option>
+            <option value="MUTE">채팅 금지</option>
+            <option value="BAN">계정 정지</option>
+          </select>
+          <input id="sanctionSearch" type="text" placeholder="대상자 ID 검색" />
+        </div>
+        <table>
+          <thead><tr><th>제재번호</th><th>제재 일시</th><th>대상자 ID</th><th>AI 추론 결과</th><th>제재 타입</th><th>기간</th></tr></thead>
+          <tbody id="sanctionBody"></tbody>
+        </table>
+      </div>
 
-      <section class="content">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">Real-time Moderation</p>
-            <h1>운영자 대시보드</h1>
-          </div>
-          <div class="operator">담당자 <strong>관리자A</strong></div>
-        </header>
+      <div class="tab-content" id="appeals">
+        <div class="filters">
+          <select id="appealStatusFilter">
+            <option value="all">전체 상태</option>
+            <option value="PENDING">대기</option>
+            <option value="APPROVED">인용</option>
+            <option value="REJECTED">기각</option>
+          </select>
+          <input id="appealSearch" type="text" placeholder="신청자 ID 검색" />
+        </div>
+        <table>
+          <thead><tr><th>신청번호</th><th>신고번호</th><th>신청자 ID</th><th>사유</th><th>상태</th></tr></thead>
+          <tbody id="appealBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-        <section class="summary-grid" aria-label="신고 현황 요약">
-          <article><span>오늘 신규 신고</span><strong id="todayCount">0</strong></article>
-          <article><span>미처리 신고</span><strong id="pendingCount">0</strong></article>
-          <article><span>고위험 신고</span><strong id="highRiskCount">0</strong></article>
-          <article><span>평균 처리 시간</span><strong id="avgTime">0분</strong></article>
-          <article><span>제재율</span><strong id="sanctionRate">0%</strong></article>
-        </section>
+  <div id="toast" class="toast" style="display:none;">
+    <div class="title">처리 완료</div>
+    <div class="msg" id="toastMsg"></div>
+  </div>
 
-        <section class="work-area">
-          <section class="queue-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">Report Queue</p>
-                <h2>신고 큐</h2>
-              </div>
-              <div class="filters">
-                <select id="reasonFilter" aria-label="신고 사유 필터">
-                  <option value="all">전체 사유</option>
-                  <option value="욕설">욕설</option>
-                  <option value="스팸">스팸</option>
-                  <option value="어뷰징">어뷰징</option>
-                </select>
-                <input id="searchInput" type="search" placeholder="플레이어, 신고 ID 검색" />
-              </div>
-            </div>
+  <div id="alertPanel" class="alert-panel" style="display:none;">
+    <div class="alert-card">
+      <div class="title">새 신고 접수</div>
+      <div class="meta" id="alertMeta"></div>
+      <div class="content" id="alertContent"></div>
+      <div class="actions">
+        <button class="btn cancel" id="alertDismiss">닫기</button>
+        <button class="btn submit" id="alertReview">수동 검토</button>
+      </div>
+    </div>
+  </div>
 
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>신고 ID</th>
-                    <th>신고 대상 플레이어</th>
-                    <th>신고 사유</th>
-                    <th>게임/모드</th>
-                    <th>AI 위험도</th>
-                    <th>신고 횟수</th>
-                    <th>상태</th>
-                    <th>담당자</th>
-                  </tr>
-                </thead>
-                <tbody id="reportRows"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <aside class="detail-panel" id="detailPanel" aria-label="신고 상세"></aside>
-        </section>
-      </section>
-    </main>
-
+  <div id="sheetOverlay" class="sheet-overlay" style="display:none;">
+    <div class="receipt-sheet">
+      <div class="sheet-head" id="sheetHead">신고 접수</div>
+      <div class="sheet-sub" id="sheetSub">신고 내역 상세</div>
+      <div class="field-row">
+        <div class="field-label">신고 일시</div>
+        <div class="field-value" id="sheetReportTime"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">신고자 / 피신고자</div>
+        <div class="field-value" id="sheetUsers"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">신고 내용</div>
+        <div class="sheet-content" id="sheetContent"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">제재 유형</div>
+        <select id="sheetSanctionType">
+          <option value="MUTE">채팅 금지</option>
+          <option value="BAN">계정 정지</option>
+          <option value="DISMISS">신고 취소</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field-label">제재 기간</div>
+        <input id="sheetDurationDays" type="number" min="1" value="7" />
+      </div>
+      <div class="field-row">
+        <div class="field-label">처리 사유</div>
+        <textarea id="sheetReason" placeholder="예: 반복적 욕설, 허위 신고로 확인됨"></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn cancel" id="sheetClose">닫기</button>
+        <button class="btn submit" id="sheetApply">적용</button>
+      </div>
+    </div>
+  </div>
     <script src="./app.js"></script>
   </body>
 </html>
