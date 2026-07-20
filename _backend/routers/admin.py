@@ -76,7 +76,7 @@ class AppealSubmission(BaseModel):
     user_id: str
     reason: str
 
-QUEUE_STATUSES = ("PENDING", "MANUAL_REVIEW_REQUIRED")
+QUEUE_STATUSES = ("PENDING", "MANUAL_REVIEW_REQUIRED", "PENDING_HITL")
 
 class SanctionCreate(BaseModel):
     sanction_type: Literal["warn", "mute_1d", "mute_7d", "ban_perm"]
