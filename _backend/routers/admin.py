@@ -179,9 +179,9 @@ async def create_sanction(report_id: int, body: SanctionCreate):
 
     # 실시간 웹소켓 제재 반영 (모놀리식 서버 통합의 핵심)
     if sanction_type == "BAN":
-        await manager.ban_user(reported_id, f"관리자 제재: {body.reason}")
+        await manager.ban_user(reported_id, f"관리자 제재 조치", body.reason)
     else:
-        await manager.mute_user(reported_id, f"관리자 제재: {body.reason}")
+        await manager.mute_user(reported_id, f"관리자 제재 조치", body.reason)
 
     return {"report_id": report_id, "sanction": sanction, "game_server_sync": {"ok": True, "data": "Local memory updated"}}
 
@@ -234,7 +234,7 @@ async def send_sanction_command(command: SanctionCommand):
 
     # 실시간 웹소켓 제재 반영 (모놀리식 서버 통합)
     if command.action == "approve":
-        await manager.ban_user(reported_id, f"신고 승인 - 제재 조치됨")
+        await manager.ban_user(reported_id, f"신고 승인 - 제재 조치됨", "관리자 신고 승인에 의한 수동 제재")
 
     return {
         "report_id": command.report_id,

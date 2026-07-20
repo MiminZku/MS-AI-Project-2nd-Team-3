@@ -166,12 +166,13 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                     db.close()
 
                 # 5. 실시간 소켓 액션
+                ai_reason = result.get("reason", "")
                 if sanction_type == "BAN":
                     await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({primary_category} {violation_count}차 적발, {duration_days}일 게임 정지)", "time": "now"}})
-                    await manager.ban_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)")
+                    await manager.ban_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)", ai_reason)
                 elif sanction_type == "MUTE":
                     await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"⚠️ {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({primary_category} {violation_count}차 적발, {duration_days}일 채팅 금지)", "time": "now"}})
-                    await manager.mute_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)")
+                    await manager.mute_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)", ai_reason)
                 elif sanction_type == "WARN":
                     target_ws = None
                     for ws, name in manager.clients_info.items():
@@ -180,7 +181,13 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                             break
                     if target_ws:
                         try:
-                            await target_ws.send_json({"type": "system", "text": f"⚠️ 유해발언(Lv.{final_level})이 감지되어 1차 경고 조치되었습니다. 반복 시 채팅 금지 또는 게임 정지 처리됩니다."})
+                            payload = {
+                                "type": "system", 
+                                "text": f"⚠️ 유해발언(Lv.{final_level})이 감지되어 1차 경고 조치되었습니다. 반복 시 채팅 금지 또는 게임 정지 처리됩니다."
+                            }
+                            if ai_reason:
+                                payload["ai_reason"] = ai_reason
+                            await target_ws.send_json(payload)
                         except:
                             pass
             else:
