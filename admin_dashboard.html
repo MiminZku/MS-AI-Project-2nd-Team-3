@@ -144,6 +144,7 @@
             <option value="all">전체 상태</option>
             <option value="PENDING">대기</option>
             <option value="MANUAL_REVIEW_REQUIRED">수동 검토 필요</option>
+            <option value="PENDING_HITL">AI 검토 대기(HITL)</option>
             <option value="COMPLETED">처리 완료</option>
             <option value="DISMISSED">신고 취소</option>
           </select>
@@ -263,7 +264,7 @@
         // 데이터 포맷팅
         reports = reports.map(r => ({
           ...r,
-          result: r.status === 'PENDING' ? '대기' : r.status === 'MANUAL_REVIEW_REQUIRED' ? '수동 검토 필요' : r.status === 'COMPLETED' ? '제재 처리 완료' : '신고 취소',
+          result: r.status === 'PENDING' ? '대기' : r.status === 'MANUAL_REVIEW_REQUIRED' ? '수동 검토 필요' : r.status === 'PENDING_HITL' ? 'AI 검토 대기(HITL)' : r.status === 'COMPLETED' ? '제재 처리 완료' : '신고 취소',
           content: r.content_text || '내용 없음',
           reported_message: r.content_text || ''
         }));
@@ -290,7 +291,7 @@
       showToast.timeout = setTimeout(() => toast.style.display = 'none', 2200);
     }
     function showPendingAlert() {
-      const report = reports.find(r => ['PENDING', 'MANUAL_REVIEW_REQUIRED'].includes(r.status));
+      const report = reports.find(r => ['PENDING', 'MANUAL_REVIEW_REQUIRED', 'PENDING_HITL'].includes(r.status));
       if (!report) return;
       document.getElementById('alertMeta').textContent = `#${report.id} · ${report.reporter_id} → ${report.reported_id}`;
       document.getElementById('alertContent').textContent = report.reported_message || report.content;
@@ -303,7 +304,7 @@
       const query = document.getElementById('reportSearch').value.trim().toLowerCase();
       const rows = reports.filter(r => (status === 'all' || r.status === status) && (!query || `${r.reporter_id} ${r.reported_id} ${r.result}`.toLowerCase().includes(query)));
       document.getElementById('reportBody').innerHTML = rows.map(r => {
-        const badgeClass = r.status === 'PENDING' ? 'pending' : r.status === 'MANUAL_REVIEW_REQUIRED' ? 'review' : r.status === 'COMPLETED' ? 'done' : 'dismiss';
+        const badgeClass = r.status === 'PENDING' ? 'pending' : (r.status === 'MANUAL_REVIEW_REQUIRED' || r.status === 'PENDING_HITL') ? 'review' : r.status === 'COMPLETED' ? 'done' : 'dismiss';
         return `<tr><td>#${r.id}</td><td>${r.created_at}</td><td>${r.reporter_id}</td><td>${r.reported_id}</td><td><button class="status-btn badge ${badgeClass}" type="button" onclick="openReviewSheet(${r.id})">${r.result}</button></td></tr>`;
       }).join('');
     }
@@ -321,7 +322,7 @@
     }
     function updateSummary() {
       document.getElementById('statToday').textContent = reports.length;
-      document.getElementById('statPending').textContent = reports.filter(r => r.status === 'PENDING' || r.status === 'MANUAL_REVIEW_REQUIRED').length;
+      document.getElementById('statPending').textContent = reports.filter(r => r.status === 'PENDING' || r.status === 'MANUAL_REVIEW_REQUIRED' || r.status === 'PENDING_HITL').length;
       document.getElementById('statDone').textContent = reports.filter(r => r.status === 'COMPLETED' || r.status === 'DISMISSED').length;
       document.getElementById('statSanction').textContent = sanctions.length;
     }
