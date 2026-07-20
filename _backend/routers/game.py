@@ -90,19 +90,53 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
         if final_level > 0:
             db = SessionLocal()
             try:
-                # 과거 제재 내역 조회 (가중 처벌용 룰베이스)
-                past_sanctions = db.query(Sanction).filter(Sanction.user_id == target_user_id).count()
+                # 1. Primary Category 추출
+                category_levels = result.get("category_levels", {})
+                primary_category = None
+                for cat, lvl in category_levels.items():
+                    if lvl == final_level:
+                        primary_category = cat
+                        break
                 
-                if past_sanctions == 0:
-                    duration_days = 1
-                elif past_sanctions == 1:
-                    duration_days = 7
-                else:
-                    duration_days = 9999
+                # 2. 동일 카테고리 과거 위반 누적 횟수 조회
+                past_sanctions = db.query(Sanction).filter(Sanction.user_id == target_user_id).all()
+                same_category_count = 0
+                for s in past_sanctions:
+                    if s.ai_result:
+                        try:
+                            s_result = json.loads(s.ai_result)
+                            if s_result.get("category_levels", {}).get(primary_category, 0) > 0:
+                                same_category_count += 1
+                        except:
+                            pass
+                            
+                violation_count = same_category_count + 1  # 이번 위반 포함 누적 차수
                 
+                # 3. 매핑 행렬(Matrix) 기반 처벌 수위 결정
+                sanction_type = "BAN"
+                duration_days = 0
+                
+                if final_level == 1:
+                    if violation_count == 1: sanction_type, duration_days = "WARN", 0
+                    elif violation_count == 2: sanction_type, duration_days = "MUTE", 3
+                    elif violation_count == 3: sanction_type, duration_days = "MUTE", 7
+                    else: sanction_type, duration_days = "BAN", 7
+                elif final_level == 2:
+                    if violation_count == 1: sanction_type, duration_days = "MUTE", 7
+                    elif violation_count == 2: sanction_type, duration_days = "BAN", 14
+                    elif violation_count == 3: sanction_type, duration_days = "BAN", 30
+                    else: sanction_type, duration_days = "BAN", 90
+                elif final_level == 3:
+                    if violation_count == 1: sanction_type, duration_days = "BAN", 30
+                    elif violation_count == 2: sanction_type, duration_days = "BAN", 90
+                    else: sanction_type, duration_days = "BAN", 9999
+                else: # final_level >= 4
+                    sanction_type, duration_days = "BAN", 9999
+                
+                # 4. 제재 정보 DB 반영
                 sanction = Sanction(
                     user_id=target_user_id,
-                    type="KICK_AND_BAN",
+                    type=sanction_type,
                     duration_days=duration_days,
                     ai_result=json.dumps(result, ensure_ascii=False)
                 )
@@ -115,7 +149,13 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                 target_user = db.query(User).filter(User.id == target_user_id).first()
                 if target_user:
                     now = datetime.now(timezone.utc)
-                    target_user.banned_until = now + timedelta(days=duration_days)
+                    if sanction_type == "BAN":
+                        target_user.banned_until = now + timedelta(days=duration_days)
+                    elif sanction_type == "MUTE":
+                        if target_user.muted_until and target_user.muted_until > now:
+                            target_user.muted_until = target_user.muted_until + timedelta(days=duration_days)
+                        else:
+                            target_user.muted_until = now + timedelta(days=duration_days)
                         
                 db.commit()
             except Exception as e:
@@ -123,9 +163,24 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
             finally:
                 db.close()
 
-            # 실시간 소켓 강퇴
-            await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({past_sanctions+1}회차 누적, {duration_days}일 정지)", "time": "now"}})
-            await manager.kick_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {past_sanctions+1}회차 누적)")
+            # 5. 실시간 소켓 액션
+            if sanction_type == "BAN":
+                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({primary_category} {violation_count}차 적발, {duration_days}일 게임 정지)", "time": "now"}})
+                await manager.ban_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)")
+            elif sanction_type == "MUTE":
+                await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"⚠️ {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({primary_category} {violation_count}차 적발, {duration_days}일 채팅 금지)", "time": "now"}})
+                await manager.mute_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)")
+            elif sanction_type == "WARN":
+                target_ws = None
+                for ws, name in manager.clients_info.items():
+                    if name == target_user_id:
+                        target_ws = ws
+                        break
+                if target_ws:
+                    try:
+                        await target_ws.send_json({"type": "system", "text": f"⚠️ 유해발언(Lv.{final_level})이 감지되어 1차 경고 조치되었습니다. 반복 시 채팅 금지 또는 게임 정지 처리됩니다."})
+                    except:
+                        pass
         else:
             # 제재 대상이 아니거나, HITL 수동 검토가 필요한 케이스
             db = SessionLocal()
