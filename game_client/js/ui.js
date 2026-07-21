@@ -80,7 +80,6 @@ function selectMode(mode) {
     updateP2ScoreLabel();
     setPresence(1); // 서버 응답이 오기 전까지는 나뿐이므로 대기 화면부터 표시
     $id('chatHistory').innerHTML = '';
-    seedDemoChatMessages(); // 임시: 신고 버튼 테스트용 예시 채팅
     connectChat();
   } else {
     p2AI = true;
@@ -190,12 +189,12 @@ function updateOpponentDisplay() {
   if (gameMode !== 'multi') return;
   updateReadyPlayerList();
   if (currentOpponentName) {
-    $id('p2Label').textContent = `👤 ${currentOpponentName}`;
+    $id('p2Label').textContent = currentOpponentName;
     $id('p2BannerName').textContent = currentOpponentName;
     $id('p2BannerHint').textContent = '상대 플레이어가 조작 중';
   } else {
-    $id('p2Label').textContent = '🎮 플레이어 2';
-    $id('p2BannerName').textContent = '🎮 플레이어 2';
+    $id('p2Label').textContent = '플레이어 2';
+    $id('p2BannerName').textContent = '플레이어 2';
     $id('p2BannerHint').textContent = '상대 플레이어를 기다리는 중';
   }
 }
