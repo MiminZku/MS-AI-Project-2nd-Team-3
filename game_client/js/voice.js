@@ -163,7 +163,7 @@ async function startRecording() {
   mediaRecorder.onstop = () => {
     lastRecordingBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
     recordedChunks = [];
-    uploadRecording(lastRecordingBlob);
+    // 라운드 종료 시 자동 전원 업로드는 하지 않고, 신고 요청 수신 시 온디맨드로 업로드합니다.
   };
   mediaRecorder.start();
 
@@ -189,15 +189,41 @@ function stopMicCapture() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   라운드 종료 시 서버에 내 녹음 업로드
-   (신고 시 상대방의 최신 녹음을 조회하는 방식이라, 각자 자기 녹음을 올려둬야 함)
+   음성 신고 요청 시 내 녹음 데이터 온디맨드 업로드
 ═══════════════════════════════════════════════════════ */
+async function uploadCurrentRecording() {
+  if (gameMode !== 'multi') return;
+
+  let blobToUpload = lastRecordingBlob;
+
+  // 현재 녹음이 진행 중이라면 데이터를 요청하여 직전까지의 Blob을 생성합니다.
+  if (recOn && mediaRecorder && mediaRecorder.state === 'recording') {
+    try {
+      mediaRecorder.requestData();
+      await new Promise(r => setTimeout(r, 100));
+      if (recordedChunks.length > 0) {
+        blobToUpload = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      }
+    } catch (err) {
+      console.warn('녹음 데이터 추출 실패:', err);
+    }
+  }
+
+  if (blobToUpload && blobToUpload.size > 0) {
+    uploadRecording(blobToUpload);
+  }
+}
+
+// 유저가 웹소켓을 끊고 이탈(Rage Quit)하는 경우를 대비한 안전장치 업로드
+window.addEventListener('beforeunload', () => {
+  uploadCurrentRecording();
+});
+
 function uploadRecording(blob) {
-  if (gameMode !== 'multi' || !blob || !blob.size) return; // AI 모드는 신고 대상이 없어 업로드 의미 없음
+  if (gameMode !== 'multi' || !blob || !blob.size) return;
   try {
     fetch(`${getHttpBase()}/upload-voice`, {
       method: 'POST',
-      // HTTP 헤더 값은 ISO-8859-1만 허용되어 한글 사용자명을 그대로 넣으면 fetch가 즉시 예외를 던짐
       headers: { 'X-User': encodeURIComponent(MY_NAME) },
       body: blob
     }).catch(err => console.warn('음성 업로드 실패:', err));

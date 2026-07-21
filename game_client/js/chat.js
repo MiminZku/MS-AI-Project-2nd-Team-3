@@ -123,6 +123,10 @@ function connectChat() {
         updateOpponentDisplay();
       } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'webrtc_renegotiate') {
         handleWebRtcMessage(data);
+      } else if (data.type === 'request_voice_upload') {
+        if (typeof uploadCurrentRecording === 'function') {
+          uploadCurrentRecording();
+        }
       } else if (data.type === 'game_start') {
         if ($id('readyOverlay').classList.contains('show')) {
           showToast("상대방이 게임을 시작했습니다.");
