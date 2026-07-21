@@ -9,7 +9,7 @@ import json
 from services.game_state import manager
 from services.llm_logic import analyze_chat
 from database import SessionLocal
-from models import Report, Sanction, User
+from models import Report, Sanction, User, Appeal
 import re
 
 router = APIRouter()
@@ -493,3 +493,73 @@ async def report_audio(user: str = ""):
         return Response(content="not found", status_code=404)
     
     return FileResponse(filepath, media_type="audio/wav")
+
+class ClientAppealRequest(BaseModel):
+    user_id: str
+    reason: str
+
+@router.get("/api/client/appeals/latest")
+def get_latest_appeal(user_id: str):
+    """게임 클라이언트에서 특정 유저의 가장 최근 이의신청 내역을 조회하는 API"""
+    db = SessionLocal()
+    try:
+        appeal = db.query(Appeal).filter(Appeal.user_id == user_id).order_by(Appeal.created_at.desc()).first()
+        if appeal:
+            return {
+                "status": "ok", 
+                "appeal": {
+                    "id": appeal.id, 
+                    "report_id": appeal.report_id, 
+                    "reason": appeal.reason, 
+                    "status": appeal.status, 
+                    "created_at": appeal.created_at.isoformat()
+                }
+            }
+        return {"status": "ok", "appeal": None}
+    finally:
+        db.close()
+
+@router.post("/api/client/appeals")
+async def submit_client_appeal(req: ClientAppealRequest):
+    """게임 클라이언트에서 report_id 없이 user_id와 사유만으로 이의신청을 등록하는 API"""
+    db = SessionLocal()
+    try:
+        # user_id가 제재당한(COMPLETED) 가장 최근 신고 내역을 찾음 (이중 제재가 없으므로 가장 최신 건이 대상임)
+        report = db.query(Report).filter(Report.reported_id == req.user_id, Report.status == "COMPLETED").order_by(Report.created_at.desc()).first()
+        
+        if not report:
+            return Response(content="이의신청할 제재 내역(신고)이 없습니다.", status_code=400)
+            
+        new_appeal = Appeal(
+            report_id=report.id,
+            user_id=req.user_id,
+            reason=req.reason,
+            status="PENDING"
+        )
+        db.add(new_appeal)
+        db.commit()
+        db.refresh(new_appeal)
+        
+        appeal_data = {
+            "id": new_appeal.id,
+            "report_id": new_appeal.report_id,
+            "user_id": new_appeal.user_id,
+            "reason": new_appeal.reason,
+            "status": new_appeal.status,
+            "created_at": new_appeal.created_at.isoformat()
+        }
+        
+        # 관리자 대시보드에 실시간 SSE 알림 전송
+        from routers.admin import notify_admins
+        await notify_admins("new_appeal", appeal_data)
+        
+        return {
+            "status": "ok",
+            "appeal": appeal_data
+        }
+    except Exception as e:
+        print(f"Appeal Submit Error: {e}")
+        return Response(content="error", status_code=500)
+    finally:
+        db.close()
+
