@@ -76,6 +76,10 @@ class AppealSubmission(BaseModel):
     user_id: str
     reason: str
 
+class AppealRejection(BaseModel):
+    reason: str
+    reviewer_id: str
+
 QUEUE_STATUSES = ("PENDING", "MANUAL_REVIEW_REQUIRED", "PENDING_HITL")
 
 class SanctionCreate(BaseModel):
@@ -251,3 +255,18 @@ def submit_appeal(appeal: AppealSubmission):
         )
         created = cur.fetchone()
     return created
+
+@router.post("/api/admin/appeals/{appeal_id}/reject")
+def reject_appeal(appeal_id: int, body: AppealRejection):
+    """이의신청을 기각한다. 원 제재는 그대로 유지되며 appeals.status만 REJECTED로 바뀐다."""
+    with get_db_cursor() as cur:
+        cur.execute("SELECT id, status FROM appeals WHERE id = %s;", (appeal_id,))
+        appeal = cur.fetchone()
+        if not appeal:
+            raise HTTPException(status_code=404, detail="해당 appeal_id의 이의신청을 찾을 수 없습니다.")
+        if appeal["status"] != "PENDING":
+            raise HTTPException(status_code=409, detail="이미 처리된 이의신청입니다.")
+
+        cur.execute("UPDATE appeals SET status = 'REJECTED' WHERE id = %s;", (appeal_id,))
+
+    return {"appeal_id": appeal_id, "status": "REJECTED", "reason": body.reason, "reviewer_id": body.reviewer_id}
