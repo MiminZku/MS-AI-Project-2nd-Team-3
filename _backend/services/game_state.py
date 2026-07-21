@@ -35,7 +35,7 @@ class GameStateManager:
     def is_user_muted(self, nickname: str) -> bool:
         return nickname in self.muted_users
 
-    async def mute_user(self, nickname: str, reason: str):
+    async def mute_user(self, nickname: str, reason: str, ai_reason: str = None):
         self.muted_users.add(nickname)
         target_ws = None
         for ws, name in self.clients_info.items():
@@ -45,16 +45,14 @@ class GameStateManager:
         
         if target_ws:
             try:
-                await target_ws.send_json({
-                    "type": "sanction_notice",
-                    "action": "mute",
-                    "text": f"채팅 금지 제재가 적용되었습니다. {reason}"
-                })
-                await target_ws.send_json({"type": "system", "text": f"채팅이 금지되었습니다: {reason}"})
+                payload = {"type": "system", "text": f"채팅이 금지되었습니다: {reason}"}
+                if ai_reason:
+                    payload["ai_reason"] = ai_reason
+                await target_ws.send_json(payload)
             except:
                 pass
 
-    async def ban_user(self, nickname: str, reason: str):
+    async def ban_user(self, nickname: str, reason: str, ai_reason: str = None):
         target_ws = None
         for ws, name in self.clients_info.items():
             if name == nickname:
@@ -63,12 +61,10 @@ class GameStateManager:
         
         if target_ws:
             try:
-                await target_ws.send_json({
-                    "type": "sanction_notice",
-                    "action": "ban",
-                    "text": f"계정 정지 제재가 적용되었습니다. {reason}"
-                })
-                await target_ws.send_json({"type": "system", "text": f"계정이 정지(강제 퇴장)되었습니다: {reason}"})
+                payload = {"type": "system", "text": f"계정이 정지(강제 퇴장)되었습니다: {reason}"}
+                if ai_reason:
+                    payload["ai_reason"] = ai_reason
+                await target_ws.send_json(payload)
                 await target_ws.close()
             except:
                 pass
