@@ -95,6 +95,8 @@ function startGame() {
 
   timerInterval = setInterval(tick, 1000);
   if (p2AI) scheduleAI();
+  // 대기실이 아닌 실제 게임 시작 시점에만 음성 통화를 연결한다.
+  maybeStartWebRTC();
   startRecording(); // 게임 시작과 동시에 음성 녹음 자동 시작 (AI/멀티 모드 공통)
 }
 
@@ -130,6 +132,7 @@ function endGame() {
   $id('goP2Score').className = 'go-sv' + (winner === 2 ? ' winner' : '');
   $id('goP2Name').textContent = p2Name;
   goOverlay.classList.add('show');
+  showRestartChoice();
 }
 
 function updateHUD(pid) {
