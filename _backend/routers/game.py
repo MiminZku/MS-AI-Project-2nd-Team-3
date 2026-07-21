@@ -369,7 +369,7 @@ async def upload_voice(request: Request, x_user: Optional[str] = Header("unknown
     if not body:
         return Response(content="empty", status_code=400)
 
-    filepath = os.path.join(RECORDINGS_DIR, f"{safe_user}.webm")
+    filepath = os.path.join(RECORDINGS_DIR, f"{safe_user}.wav")
     with open(filepath, "wb") as f:
         f.write(body)
 
@@ -383,4 +383,4 @@ async def report_audio(user: str = ""):
     if not rec or not os.path.exists(rec["filepath"]):
         return Response(content="not found", status_code=404)
     
-    return FileResponse(rec["filepath"], media_type="audio/webm")
+    return FileResponse(rec["filepath"], media_type="audio/wav")

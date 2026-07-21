@@ -47,7 +47,7 @@ function showRestartChoice() {
 }
 
 function restartToReadyRoom() {
-  showRestartChoice();
+  proceedToReadyRoom();
 }
 
 function proceedToReadyRoom() {
@@ -77,6 +77,7 @@ function selectMode(mode) {
     $id('aiBtn').classList.remove('on');
     currentOpponentName = null; // 이전 매치의 상대 정보가 남아있지 않도록 초기화
     updateOpponentDisplay();
+    updateP2ScoreLabel();
     setPresence(1); // 서버 응답이 오기 전까지는 나뿐이므로 대기 화면부터 표시
     $id('chatHistory').innerHTML = '';
     seedDemoChatMessages(); // 임시: 신고 버튼 테스트용 예시 채팅

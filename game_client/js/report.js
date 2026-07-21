@@ -56,7 +56,7 @@ async function submitReport() {
     target_user_id: targetUser,
     channel: isVoiceReport ? 'voice' : 'text',
     content_text: isVoiceReport ? '' : (reportTarget?.text || ''),
-    content_path: isVoiceReport ? `/recordings/${targetUser}.webm` : ''
+    content_path: isVoiceReport ? `/recordings/${targetUser}.wav` : ''
   };
 
   try {
