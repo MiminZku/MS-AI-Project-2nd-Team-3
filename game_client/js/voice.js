@@ -83,6 +83,9 @@ async function handleMicConsentChange(event) {
         sendWebRtcMessage({ type: 'webrtc_renegotiate' });
       }
     }
+  } else {
+    // 💡 아직 WebRTC 통화가 아예 시작되지 않았다면 지금 연결 시작
+    maybeStartWebRTC();
   }
 }
 

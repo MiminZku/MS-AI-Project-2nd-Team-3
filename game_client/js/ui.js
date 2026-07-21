@@ -104,7 +104,7 @@ function showReadyScreen(mode) {
   $id('readyOverlay').classList.add('show');
 }
 
-function confirmGameStart() {
+function confirmGameStart(isRemote = false) {
   // '마이크 사용'을 체크한 경우에만 이번 라운드 녹음 진행 (스피커 출력은 녹음과 무관)
   recordingConsented = $id('consentMic').checked;
   $id('readyOverlay').classList.remove('show');
@@ -113,6 +113,11 @@ function confirmGameStart() {
   closeWebRTC();
   maybeStartWebRTC();
   beginGame();
+  
+  // 멀티플레이에서 내가 직접 누른 경우 상대방에게도 시작 신호를 보냄
+  if (!isRemote && gameMode === 'multi' && typeof ws !== 'undefined' && ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'game_start' }));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
