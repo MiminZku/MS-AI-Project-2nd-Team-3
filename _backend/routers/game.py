@@ -340,8 +340,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast({"type": "chat", "message": msg})
                     # 향후 이 부분에서 AI(LLM) 기반 욕설 필터링 및 DB 저장을 수행할 수 있습니다.
 
-            # WebRTC 시그널링 및 게임 시작 메시지 중계 (1:1 통신을 가정하여 나를 제외한 모두에게 전달)
-            elif msg_type in ["webrtc_offer", "webrtc_answer", "webrtc_ice_candidate", "webrtc_renegotiate", "game_start"]:
+            # WebRTC 시그널링, 게임 시작 및 음성 업로드 요청 메시지 중계 (1:1 통신을 가정하여 나를 제외한 모두에게 전달)
+            elif msg_type in ["webrtc_offer", "webrtc_answer", "webrtc_ice_candidate", "webrtc_renegotiate", "game_start", "request_voice_upload"]:
                 for other_ws in manager.active_connections:
                     if other_ws != websocket:
                         await other_ws.send_json(data)
