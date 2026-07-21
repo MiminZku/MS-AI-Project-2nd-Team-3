@@ -113,6 +113,8 @@ function endGame() {
   clearTimeout(aiMoveTimeout);
   gameActive = false;
   stopRecording(); // 게임 종료 시점까지만 녹음
+  stopMicCapture(); // 게임이 끝나면 마이크 장치도 즉시 해제
+  closeWebRTC(); // 다음 게임에서 새 마이크 트랙으로 다시 연결할 수 있도록 초기화
 
   // 종료 시점에 드래그가 진행 중이었다면 취소하고 시각효과를 정리 (종료 후 점수 반영 방지)
   if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }

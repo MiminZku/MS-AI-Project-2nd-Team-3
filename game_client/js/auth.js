@@ -62,6 +62,9 @@ async function submitLogin() {
     $id('p1BannerName').textContent = id;
     $id('goP1Name').textContent = `🎮 ${id}`;
     $id('loginOverlay').style.display = 'none';
+    // 강제 퇴장 후 재로그인하는 경우 숨겨져 있던 모드 선택 화면을 복구한다.
+    $id('modeOverlay').style.display = 'flex';
+    $id('sidePanel').style.display = 'none';
 
     applyChatMuted(Boolean(data.is_muted)); // 이전 계정의 MUTE 상태가 남지 않도록 매번 갱신
   } catch (fetchErr) {

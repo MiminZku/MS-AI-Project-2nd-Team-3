@@ -108,6 +108,9 @@ function confirmGameStart() {
   // '마이크 사용'을 체크한 경우에만 이번 라운드 녹음 진행 (스피커 출력은 녹음과 무관)
   recordingConsented = $id('consentMic').checked;
   $id('readyOverlay').classList.remove('show');
+  // 재시작 시 이전 게임의 WebRTC 상태가 남아 있지 않도록 새 통화를 준비한다.
+  webRtcRestartPending = true;
+  closeWebRTC();
   maybeStartWebRTC();
   beginGame();
 }
