@@ -307,17 +307,38 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast_opponent_info()
             
             elif msg_type == "chat":
-                user = data.get("user")
+                # 클라이언트가 보낸 user 값은 위조할 수 있으므로 identify된 소켓 사용자만 사용한다.
+                user = manager.clients_info.get(websocket)
                 text = data.get("text")
+                if not user or not isinstance(text, str):
+                    continue
+
+                # 메모리 상태가 오래됐거나 관리자 제재 직후인 경우를 대비해 DB 제재 상태를 재확인한다.
+                db = SessionLocal()
+                try:
+                    db_user = db.query(User).filter(User.id == user).first()
+                    is_muted_in_db = bool(
+                        db_user
+                        and db_user.muted_until
+                        and db_user.muted_until > datetime.now(timezone.utc)
+                    )
+                finally:
+                    db.close()
+
+                if is_muted_in_db:
+                    manager.muted_users.add(user)
+                else:
+                    manager.muted_users.discard(user)
+
                 if manager.is_user_muted(user):
                     await websocket.send_json({"type": "system", "text": "채팅이 금지된 상태입니다."})
                     continue
-                if isinstance(user, str) and isinstance(text, str):
-                    text = text.strip()[:500]
-                    if text:
-                        msg = manager.add_chat_history(user[:40], text)
-                        await manager.broadcast({"type": "chat", "message": msg})
-                        # 향후 이 부분에서 AI(LLM) 기반 욕설 필터링 및 DB 저장을 수행할 수 있습니다.
+
+                text = text.strip()[:500]
+                if text:
+                    msg = manager.add_chat_history(user[:40], text)
+                    await manager.broadcast({"type": "chat", "message": msg})
+                    # 향후 이 부분에서 AI(LLM) 기반 욕설 필터링 및 DB 저장을 수행할 수 있습니다.
 
             # WebRTC 시그널링 메시지 중계 (1:1 통신을 가정하여 나를 제외한 모두에게 전달)
             elif msg_type in ["webrtc_offer", "webrtc_answer", "webrtc_ice_candidate"]:

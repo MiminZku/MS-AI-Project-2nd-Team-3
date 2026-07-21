@@ -67,8 +67,10 @@ function selectMode(mode) {
    BAN 강제 퇴장 — 게임 도중 서버가 계정을 정지시키면
    (system 메시지 + 소켓 강제 종료) 로그인 화면으로 돌려보냄
 ═══════════════════════════════════════════════════════ */
-function kickToLogin(message) {
-  alert(message || '계정이 정지되어 로그아웃되었습니다.');
+function kickToLogin(message, options = {}) {
+  if (!options.silent) {
+    alert(message || '계정이 정지되어 로그아웃되었습니다.');
+  }
 
   clearInterval(timerInterval);
   clearTimeout(aiTimeout);
