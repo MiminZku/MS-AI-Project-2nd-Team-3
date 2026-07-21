@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>이의신청 접수</title>
+    <link rel="stylesheet" href="./appeal.css" />
+  </head>
+  <body>
+    <main class="appeal-page">
+      <section class="intro">
+        <p class="eyebrow">Appeal Center</p>
+        <h1>이의신청 접수</h1>
+        <p>신고 처리 또는 제재 결과에 대해 재검토가 필요한 경우 아래 양식으로 접수해 주세요.</p>
+      </section>
+
+      <section class="form-card" aria-label="이의신청 입력 양식">
+        <form id="appealForm" novalidate>
+          <div class="field-grid">
+            <label>
+              <span>신청자 ID</span>
+              <input id="userId" name="userId" type="text" placeholder="예: miminzku" autocomplete="username" />
+            </label>
+
+            <label>
+              <span>신고번호 또는 제재번호</span>
+              <input id="caseId" name="caseId" type="text" placeholder="예: RPT-20260716-002" />
+            </label>
+          </div>
+
+          <label>
+            <span>이메일</span>
+            <input id="email" name="email" type="email" placeholder="결과 안내를 받을 이메일" autocomplete="email" />
+          </label>
+
+          <label>
+            <span>이의신청 사유</span>
+            <select id="appealReason" name="appealReason">
+              <option value="">사유를 선택해 주세요</option>
+              <option value="허위 신고">허위 신고</option>
+              <option value="오탐지">AI 또는 운영 검토 오탐지</option>
+              <option value="제재 과도">제재 수위가 과도함</option>
+              <option value="기타">기타</option>
+            </select>
+          </label>
+
+          <label>
+            <span>추가 설명</span>
+            <textarea id="appealDetail" name="appealDetail" rows="7" placeholder="상황, 근거, 재검토가 필요한 이유를 자세히 적어 주세요."></textarea>
+          </label>
+
+          <p class="form-message" id="formMessage" aria-live="polite"></p>
+
+          <div class="actions">
+            <button class="secondary" id="resetButton" type="reset">초기화</button>
+            <button class="primary" type="submit">이의신청 제출</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="complete-card" id="completeCard" hidden>
+        <p class="eyebrow">Submitted</p>
+        <h2>접수가 완료되었습니다</h2>
+        <p id="receiptText"></p>
+        <button class="primary" id="newAppealButton" type="button">새 이의신청 작성</button>
+      </section>
+    </main>
+
+    <script src="./appeal.js"></script>
+  </body>
+</html>

@@ -56,6 +56,8 @@
     .badge.dismiss { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
     .badge.mute { background: rgba(108,99,255,.16); color: #b9b3ff; border-color: rgba(108,99,255,.25); }
     .badge.ban { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
+    .badge.voice { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
+    .badge.text { background: rgba(108,99,255,.16); color: #b9b3ff; border-color: rgba(108,99,255,.25); }
     .badge.approve { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
     .badge.reject { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
     .status-btn { appearance: none; font: inherit; cursor: pointer; border: 0; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
@@ -64,10 +66,19 @@
     .toast .title { font-weight: 800; margin-bottom: 4px; }
     .toast .msg { font-size: 13px; color: var(--muted); margin-bottom: 8px; line-height: 1.4; }
     .alert-panel { position: fixed; top: 18px; right: 18px; z-index: 75; display: none; }
-    .alert-card { width: min(360px, calc(100vw - 28px)); border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 14px; background: rgba(15, 28, 47, 0.98); padding: 14px; box-shadow: 0 18px 42px rgba(0,0,0,0.28); }
-    .alert-card .title { font-weight: 800; margin-bottom: 8px; }
-    .alert-card .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
-    .alert-card .content { font-size: 13px; color: var(--text); line-height: 1.5; padding: 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); white-space: pre-wrap; }
+    .alert-card { width: min(360px, calc(100vw - 28px)); border: 1px solid rgba(255,91,112,.38); border-left: 4px solid var(--danger); border-radius: 14px; background: linear-gradient(180deg, rgba(74, 18, 32, 0.98), rgba(28, 17, 31, 0.98)); padding: 14px; box-shadow: 0 18px 42px rgba(255,91,112,0.20), 0 18px 42px rgba(0,0,0,0.28); }
+    .alert-card .title { font-weight: 800; margin-bottom: 8px; color: #ffb3bd; }
+    .alert-card .meta { color: #ffd3d9; font-size: 12px; margin-bottom: 8px; }
+    .alert-card .content { font-size: 13px; color: var(--text); line-height: 1.5; white-space: pre-wrap; }
+    .alert-panel.hitl .alert-card { border-left-color: var(--danger); box-shadow: 0 18px 42px rgba(255,91,112,0.24), 0 18px 42px rgba(0,0,0,0.28); }
+    .alert-panel.hitl .title { color: #ffb3bd; }
+    .alert-content-box, .alert-stage-box, .alert-reason-box { margin-top: 8px; padding: 10px; border-radius: 10px; background: rgba(255,91,112,.10); border: 1px solid rgba(255,91,112,.30); }
+    .alert-box-label { margin-bottom: 6px; color: #ffccd3; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+    .alert-stage-box { grid-template-columns: 58px 1fr; align-items: center; gap: 8px; margin-bottom: 8px; padding: 10px; border-radius: 10px; background: rgba(255,91,112,.12); border: 1px solid rgba(255,91,112,.32); }
+    .alert-stage-label { color: #ffccd3; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+    .alert-stage { min-height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(255,91,112,.18); color: #fff; font-size: 15px; font-weight: 900; }
+    .alert-reason-box { background: rgba(255,91,112,.10); border-color: rgba(255,91,112,.30); }
+    .alert-reason { color: #ffe3e7; font-size: 12px; line-height: 1.55; }
     .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; justify-content: flex-end; padding: 18px; z-index: 80; }
     .receipt-sheet { width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 36px); overflow: auto; border: 1px solid var(--border); border-radius: 18px; background: rgba(15, 28, 47, 0.98); padding: 18px; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
     .sheet-head { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
@@ -76,6 +87,10 @@
     .field-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
     .field-value { font-size: 14px; color: var(--text); line-height: 1.5; }
     .sheet-content { border: 1px solid var(--border); background: var(--panel-2); padding: 10px; border-radius: 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+    .sheet-audio { width: 100%; min-height: 40px; }
+    .audio-link { color: #b9b3ff; font-size: 12px; text-decoration: none; }
+    .audio-link:hover { text-decoration: underline; }
+    .audio-status { color: var(--warning); font-size: 12px; line-height: 1.4; }
     .receipt-sheet select, .receipt-sheet input, .receipt-sheet textarea { width: 100%; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 10px 12px; border-radius: 10px; font-size: 14px; }
     .receipt-sheet textarea { min-height: 90px; resize: vertical; }
     .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
@@ -89,6 +104,8 @@
     .badge.dismiss { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
     .badge.mute { background: rgba(108,99,255,.16); color: #b9b3ff; border-color: rgba(108,99,255,.25); }
     .badge.ban { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
+    .badge.voice { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
+    .badge.text { background: rgba(108,99,255,.16); color: #b9b3ff; border-color: rgba(108,99,255,.25); }
     .badge.approve { background: rgba(34,197,94,.14); color: #8effbc; border-color: rgba(34,197,94,.25); }
     .badge.reject { background: rgba(255,91,112,.16); color: #ff9aa8; border-color: rgba(255,91,112,.25); }
     .muted { color: var(--muted); }

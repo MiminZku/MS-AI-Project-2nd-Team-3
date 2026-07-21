@@ -50,10 +50,14 @@
             <option value="COMPLETED">처리 완료</option>
             <option value="DISMISSED">신고 취소</option>
           </select>
+          <select id="reportSort">
+            <option value="latest">최신순</option>
+            <option value="oldest">과거순</option>
+          </select>
           <input id="reportSearch" type="text" placeholder="신고자/피신고자 ID 검색" />
         </div>
         <table>
-          <thead><tr><th>신고번호</th><th>신고 일시</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead>
+          <thead><tr><th>신고번호</th><th>신고 일시</th><th>신고 유형</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead>
           <tbody id="reportBody"></tbody>
         </table>
       </div>
@@ -98,9 +102,20 @@
 
   <div id="alertPanel" class="alert-panel" style="display:none;">
     <div class="alert-card">
-      <div class="title">새 신고 접수</div>
+      <div class="title" id="alertTitle">새 신고 접수</div>
       <div class="meta" id="alertMeta"></div>
-      <div class="content" id="alertContent"></div>
+      <div class="alert-content-box" id="alertContentBox">
+        <div class="alert-box-label">신고 내용</div>
+        <div class="content" id="alertContent"></div>
+      </div>
+      <div class="alert-stage-box" id="alertStageBox">
+        <div class="alert-stage-label">단계</div>
+        <div class="alert-stage" id="alertStage"></div>
+      </div>
+      <div class="alert-reason-box" id="alertReasonBox">
+        <div class="alert-box-label">사유: 상세한 정책 내용</div>
+        <div class="alert-reason" id="alertReason"></div>
+      </div>
       <div class="actions">
         <button class="btn cancel" id="alertDismiss">닫기</button>
         <button class="btn submit" id="alertReview">수동 검토</button>
@@ -123,6 +138,12 @@
       <div class="field-row">
         <div class="field-label">신고 내용</div>
         <div class="sheet-content" id="sheetContent"></div>
+      </div>
+      <div class="field-row" id="sheetAudioRow" style="display:none;">
+        <div class="field-label">음성 신고 파일</div>
+        <audio id="sheetAudio" class="sheet-audio" controls preload="metadata"></audio>
+        <a id="sheetAudioLink" class="audio-link" target="_blank" rel="noopener">새 창에서 열기</a>
+        <div id="sheetAudioStatus" class="audio-status"></div>
       </div>
       <div class="field-row">
         <div class="field-label">제재 유형</div>
