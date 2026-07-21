@@ -15,7 +15,7 @@ import re
 router = APIRouter()
 
 
-def build_mail_content(category, level, sanction_type, duration_days, violation_count, reason):
+def build_mail_content(category, level, sanction_type, duration_days, violation_count, reason, channel="text"):
     """제재 안내 우편 본문을 코드에서 조립한다. (AI 호출 없음, 기간은 매트릭스 확정값 사용)"""
     if sanction_type == "WARN":
         action = "경고 조치"
@@ -25,8 +25,9 @@ def build_mail_content(category, level, sanction_type, duration_days, violation_
         action = "영구 이용제한 조치"
     else:
         action = f"게임 이용정지 {duration_days}일 조치"
+    source = "음성" if channel == "voice" else "채팅"
     return (
-        f"[제재 안내] 회원님의 채팅에서 '{category}' {level}단계에 해당하는 표현이 확인되어 "
+        f"[제재 안내] 회원님의 {source}에서 '{category}' {level}단계에 해당하는 표현이 확인되어 "
         f"{action}가 적용되었습니다. (동일 유형 {violation_count}차 적발) "
         f"판정 근거: {reason} "
         f"이의가 있으실 경우 고객센터를 통해 이의를 제기하실 수 있습니다."
@@ -142,9 +143,16 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
         print(f"======================================\n")
         
         final_level = int(result.get("final_level", 0))
-        
+
+        # 정책 4·11절: urgent_flags(미성년자 성착취·실제 위해 예고·자살/자해 조장 등)는
+        # 카테고리·차수 불문 즉시 최상급(영구 이용제한)으로 강제하고, 관리자 긴급 알림(수사기관 통보 검토 대상)을 발송한다.
+        urgent_flags = result.get("urgent_flags", []) or []
+        if urgent_flags:
+            final_level = 4
+
         if final_level > 0:
-            is_hitl = final_level == -1 or result.get("confidence", 1.0) < 0.9 or result.get("needs_human_review", False)
+            # 긴급 플래그가 있으면 confidence가 낮아도 자동 검토(HITL)로 미루지 않고 즉시 제재한다.
+            is_hitl = not urgent_flags and (final_level == -1 or result.get("confidence", 1.0) < 0.9 or result.get("needs_human_review", False))
             if not is_hitl:
                 db = SessionLocal()
                 try:
@@ -193,7 +201,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
 
                     mail_content = build_mail_content(
                         primary_category, final_level, sanction_type,
-                        duration_days, violation_count, result.get("reason", "")
+                        duration_days, violation_count, result.get("reason", ""), channel
                     )
                     result["mail_content"] = mail_content   # ai_result에 저장돼 관리자 대시보드가 봄 + 계약 충족
 
@@ -252,6 +260,19 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                             await target_ws.send_json(payload)
                         except:
                             pass
+
+                # 6. 긴급 플래그 발생 시 관리자 긴급 알림 (수사기관 통보 검토 대상)
+                if urgent_flags:
+                    from routers.admin import notify_admins
+                    await notify_admins("urgent_sanction", {
+                        "report_id": report_id,
+                        "target": target_user_id,
+                        "urgent_flags": urgent_flags,
+                        "level": final_level,
+                        "text": content_text,
+                        "reason": result.get("reason", ""),
+                        "note": "수사기관 통보 검토 대상"
+                    })
             else:
                 # 유해 발언이지만 HITL 수동 검토가 필요한 케이스
                 db = SessionLocal()
