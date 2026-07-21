@@ -121,7 +121,6 @@ function connectChat() {
           appendSystemMsg(`— ${escHtml(prevOpponent)}님이 퇴장했습니다 —`);
         }
         updateOpponentDisplay();
-        if (data.name) maybeStartWebRTC();
       } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'webrtc_renegotiate') {
         handleWebRtcMessage(data);
       } else if (data.type === 'game_start') {
