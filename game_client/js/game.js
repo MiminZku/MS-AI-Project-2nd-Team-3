@@ -123,7 +123,7 @@ function endGame() {
 
   const s1 = P[1].score, s2 = P[2].score;
   const winner = s1 > s2 ? 1 : s2 > s1 ? 2 : 0;
-  const p2Name = p2AI ? '🤖 AI' : '🎮 플레이어 2';
+  const p2Name = p2AI ? '🤖 AI' : '플레이어 2';
 
   $id('goTitle').textContent = winner === 1 ? '🏆 플레이어 1 승리!' : winner === 2 ? (p2AI ? '🤖 AI 승리!' : '🏆 플레이어 2 승리!') : '🤝 무승부!';
   $id('goP1Score').textContent = s1.toLocaleString();
@@ -162,10 +162,16 @@ function startDrag(e, pid) {
   if (pid === 2 && gameMode === 'multi') return; // 멀티플레이에서는 P2 보드를 원격 플레이어만 조작
   const areaEl  = pid === 1 ? p1Area : p2Area;
   const canvasEl = pid === 1 ? p1Canvas : p2Canvas;
+  const p = P[pid];
   // 터치 이벤트는 e.touches[0]에서 좌표를, preventDefault는 원본 이벤트(e)에서 호출해야 함
   const point = e.touches ? e.touches[0] : e;
   const pos = relPos(point, areaEl);
-  drag = { on: true, pid, areaEl, canvasEl, start: pos, end: pos, sel: [], sum: 0 };
+  const areaRect = areaEl.getBoundingClientRect();
+  const centers = p.cells.map(el => {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2 - areaRect.left, y: rect.top + rect.height / 2 - areaRect.top };
+  });
+  drag = { on: true, pid, areaEl, canvasEl, start: pos, end: pos, sel: [], sum: 0, centers, selectionClass: '' };
   e.preventDefault();
 }
 
@@ -174,15 +180,29 @@ p2Area.addEventListener('mousedown', e => startDrag(e, 2));
 p1Area.addEventListener('touchstart', e => startDrag(e, 1), {passive:false});
 p2Area.addEventListener('touchstart', e => startDrag(e, 2), {passive:false});
 
+let dragFramePending = false;
+
 document.addEventListener('mousemove', e => {
   if (!drag.on) return;
   drag.end = relPos(e, drag.areaEl);
-  processSelection();
+  if (!dragFramePending) {
+    dragFramePending = true;
+    requestAnimationFrame(() => {
+      dragFramePending = false;
+      processSelection();
+    });
+  }
 });
 document.addEventListener('touchmove', e => {
   if (!drag.on) return;
   drag.end = relPos(e.touches[0], drag.areaEl);
-  processSelection();
+  if (!dragFramePending) {
+    dragFramePending = true;
+    requestAnimationFrame(() => {
+      dragFramePending = false;
+      processSelection();
+    });
+  }
   e.preventDefault(); // 드래그 중 페이지 스크롤 방지
 }, {passive:false});
 
@@ -203,32 +223,37 @@ function endDrag() {
 ═══════════════════════════════════════════════════════ */
 function processSelection() {
   if (!drag.on) return;
-  const { pid, areaEl, canvasEl, start, end } = drag;
+  const { pid, areaEl, canvasEl, start, end, centers } = drag;
   const p = P[pid];
 
   const sx = Math.min(start.x, end.x), sy = Math.min(start.y, end.y);
   const ex = Math.max(start.x, end.x), ey = Math.max(start.y, end.y);
 
-  const areaRect = areaEl.getBoundingClientRect();
   let sum = 0;
   const sel = [];
 
-  p.cells.forEach((el, idx) => {
+  centers.forEach((center, idx) => {
     if (p.grid[idx] === 0 || p.stones.has(idx)) return;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width  / 2 - areaRect.left;
-    const cy = r.top  + r.height / 2 - areaRect.top;
+    const cx = center.x;
+    const cy = center.y;
     if (cx >= sx && cx <= ex && cy >= sy && cy <= ey) {
       sel.push(idx); sum += p.grid[idx];
     }
   });
 
   // Update cell classes
-  p.cells.forEach(el => el.classList.remove('sel-partial','sel-match','sel-over'));
   const cls = sum === 10 ? 'sel-match' : sum > 10 ? 'sel-over' : 'sel-partial';
-  sel.forEach(idx => p.cells[idx].classList.add(cls));
+  const selected = new Set(sel);
+  const previous = new Set(drag.sel);
+  p.cells.forEach((el, idx) => {
+    const isSelected = selected.has(idx);
+    const wasSelected = previous.has(idx);
+    if (isSelected === wasSelected && (!isSelected || drag.selectionClass === cls)) return;
+    el.classList.remove('sel-partial','sel-match','sel-over');
+    if (isSelected) el.classList.add(cls);
+  });
 
-  drag.sel = sel; drag.sum = sum;
+  drag.sel = sel; drag.sum = sum; drag.selectionClass = cls;
 
   // Update sum HUD (P1 only)
   if (pid === 1) {

@@ -30,7 +30,7 @@ header { display:flex; align-items:center; justify-content:space-between; paddin
 .ai-btn:hover { background:var(--panel); }
 .restart-btn { background:var(--panel); border:1px solid var(--border); color:var(--text-muted); padding:5px 13px; border-radius:7px; font-family:var(--mono); font-size:11px; cursor:pointer; transition:all .15s; }
 .restart-btn:hover { border-color:var(--accent); color:var(--accent); }
-.exit-btn { background:var(--panel); border:1px solid var(--border); color:var(--text-muted); padding:5px 13px; border-radius:7px; font-family:var(--mono); font-size:11px; cursor:pointer; transition:all .15s; }
+.exit-btn { background:var(--panel); border:1px solid var(--border); color:var(--text-muted); padding:0; border-radius:7px; font-family:var(--mono); font-size:14px; cursor:pointer; transition:all .15s; }
 .exit-btn:hover { border-color:var(--danger); color:var(--danger); background:var(--danger-glow); }
 .player-chip { display:flex; align-items:center; gap:8px; position:relative; }
 .avatar { width:28px; height:28px; border-radius:7px; background:linear-gradient(135deg,var(--accent),#B060FF); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
@@ -137,7 +137,7 @@ audio.mailbox-evidence { width:100%; height:30px; }
 
 /* Pop animation */
 @keyframes pop { 0%{transform:scale(.9);opacity:1} 45%{transform:scale(.9);opacity:.7} 100%{transform:scale(.9);opacity:0} }
-.apple-cell.popping { animation:pop .3s cubic-bezier(.36,.07,.19,.97) forwards; pointer-events:none; }
+.apple-cell.popping { animation:pop .16s cubic-bezier(.36,.07,.19,.97) forwards; pointer-events:none; }
 
 /* Score popup */
 .score-pop { position:absolute; font-family:var(--mono); font-weight:700; font-size:15px; color:var(--success); pointer-events:none; z-index:20; text-shadow:0 0 10px var(--success); animation:scoreFloat .9s ease forwards; }
