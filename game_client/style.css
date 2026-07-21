@@ -14,8 +14,8 @@
   --text:        #16241C;
   --text-muted:  #5B7568;
   --text-dim:    #93AA9D;
-  --font:        'Space Grotesk', sans-serif;
-  --mono:        'JetBrains Mono', monospace;
+  --font:        'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --mono:        'IBM Plex Mono', 'Noto Sans KR', 'Malgun Gothic', monospace;
 }
 
 body { background:var(--bg); color:var(--text); font-family:var(--font); height:100vh; display:flex; flex-direction:column; overflow:hidden; user-select:none; }
@@ -63,17 +63,17 @@ audio.mailbox-evidence { width:100%; height:30px; }
 .game-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg); }
 
 /* ── Dual HUD ── */
-.game-hud { display:flex; flex:0 0 76px; height:76px; min-height:76px; border-bottom:1px solid var(--border); overflow:hidden; }
-.phud { flex:1 1 0; min-width:0; padding:9px 16px; display:flex; flex-direction:column; gap:3px; overflow:hidden; }
+.game-hud { display:flex; flex:0 0 88px; height:88px; min-height:88px; border-bottom:1px solid var(--border); overflow:hidden; }
+.phud { flex:1 1 0; min-width:0; padding:11px 16px 9px; display:flex; flex-direction:column; gap:4px; overflow:visible; }
 .phud.right { text-align:right; border-left:1px solid var(--border); }
-.phud-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-muted); display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.phud-label { font-family:var(--mono); font-size:11px; line-height:1.35; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:visible; text-overflow:clip; }
 .phud.right .phud-label { justify-content:flex-end; }
-.phud-score { font-family:var(--mono); font-size:22px; font-weight:700; color:var(--accent); }
-.phud-removed { font-family:var(--mono); font-size:11px; color:var(--text-dim); }
-.center-hud { width:110px; min-width:110px; height:76px; padding:8px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border-left:1px solid var(--border); border-right:1px solid var(--border); flex:0 0 110px; }
-.timer-val { font-family:var(--mono); font-size:26px; font-weight:700; }
-.sum-val { font-family:var(--mono); font-size:14px; font-weight:600; transition:color .1s; }
-.hud-micro { font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-muted); }
+.phud-score { font-family:var(--mono); font-size:23px; line-height:1.15; font-weight:700; color:var(--accent); }
+.phud-removed { font-family:var(--mono); font-size:11px; line-height:1.35; color:var(--text-dim); }
+.center-hud { width:138px; min-width:138px; height:88px; padding:8px 16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border-left:1px solid var(--border); border-right:1px solid var(--border); flex:0 0 138px; }
+.timer-val { font-family:var(--mono); font-size:26px; line-height:1.05; font-weight:700; }
+.sum-val { font-family:var(--mono); font-size:14px; line-height:1.25; font-weight:600; transition:color .1s; }
+.hud-micro { font-family:var(--mono); font-size:10px; line-height:1.25; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); white-space:nowrap; }
 @keyframes timerWarn { 0%,100%{color:var(--danger)} 50%{color:#FF7A93} }
 .timer-warn { animation:timerWarn .7s infinite; }
 
@@ -86,7 +86,8 @@ audio.mailbox-evidence { width:100%; height:30px; }
 .p1-section .apple-area { flex:0 0 auto; height:min(546px, calc(100% - 42px)); min-height:0; }
 
 /* P2(상대 보드) — 왼쪽에 아주 작게, 상단 정렬 */
-.p2-section { flex:0 0 190px; width:190px; height:42%; align-self:flex-start; order:-1; border-left:none; border-right:1px solid var(--border); }
+.p2-section { flex:0 0 240px; width:240px; height:auto; align-self:center; order:-1; border-left:none; border-right:1px solid var(--border); }
+.p2-section .apple-area { flex:0 0 auto; width:100%; aspect-ratio:3 / 2; height:auto; min-height:0; padding:10px; }
 
 /* VS 바 숨김 */
 .vs-bar { display:none; }
