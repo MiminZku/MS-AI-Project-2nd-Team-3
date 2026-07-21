@@ -247,13 +247,15 @@ async def send_sanction_command(command: SanctionCommand):
     }
 
 @router.post("/api/appeals")
-def submit_appeal(appeal: AppealSubmission):
+async def submit_appeal(appeal: AppealSubmission):
     with get_db_cursor() as cur:
         cur.execute(
             "INSERT INTO appeals (report_id, user_id, reason) VALUES (%s, %s, %s) RETURNING *;",
             (appeal.report_id, appeal.user_id, appeal.reason),
         )
         created = cur.fetchone()
+        
+    await notify_admins("new_appeal", created)
     return created
 
 @router.post("/api/admin/appeals/{appeal_id}/reject")
