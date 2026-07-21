@@ -173,9 +173,9 @@ async def create_sanction(report_id: int, body: SanctionCreate):
             if duration_days == 0:
                 cur.execute("UPDATE users SET banned_until = '2099-12-31' WHERE id = %s;", (reported_id,))
             else:
-                cur.execute("UPDATE users SET banned_until = NOW() + INTERVAL '%s days' WHERE id = %s;", (duration_days, reported_id))
+                cur.execute("UPDATE users SET banned_until = NOW() + (%s * INTERVAL '1 day') WHERE id = %s;", (duration_days, reported_id))
         else:
-            cur.execute("UPDATE users SET muted_until = NOW() + INTERVAL '%s days' WHERE id = %s;", (duration_days, reported_id))
+            cur.execute("UPDATE users SET muted_until = NOW() + (%s * INTERVAL '1 day') WHERE id = %s;", (duration_days, reported_id))
 
     # 실시간 웹소켓 제재 반영 (모놀리식 서버 통합의 핵심)
     if sanction_type == "BAN":

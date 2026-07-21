@@ -4,6 +4,15 @@
    로그인 시 /api/login을 호출해 정지(banned) 여부를 확인한다.
    정지된 계정이면 안내 문구를 띄우고 로그인 화면에 그대로 머무른다.
 ═══════════════════════════════════════════════════════ */
+function formatRestrictionTime(value) {
+  if (!value) return '영구 정지';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).replace(/:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/, '');
+
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 async function submitLogin() {
   const id = $id('loginId').value.trim();
   const err = $id('loginError');
@@ -18,6 +27,11 @@ async function submitLogin() {
 
   if (btn) { btn.disabled = true; btn.textContent = '로그인 중...'; }
 
+  if (btn) {
+    btn.innerHTML = '<span class="login-spinner" aria-hidden="true"></span><span>로그인 중...</span>';
+    btn.classList.add('is-loading');
+  }
+
   try {
     const res = await fetch(`${getHttpBase()}/api/login`, {
       method: 'POST',
@@ -27,8 +41,11 @@ async function submitLogin() {
     const data = await res.json();
 
     if (data.status === 'banned') {
-      err.textContent = `계정이 정지되었습니다. 정지 해제 일시: ${data.banned_until}`;
+      const message = `계정이 정지되었습니다.\n정지 해제 일시: ${formatRestrictionTime(data.banned_until)}`;
+      alert(message);
+      err.textContent = message.replace('\n', ' ');
       err.style.display = 'block';
+      $id('loginOverlay').style.display = 'flex';
       return; // 로그인 화면에 그대로 머무름
     }
 
@@ -46,12 +63,13 @@ async function submitLogin() {
     $id('goP1Name').textContent = `🎮 ${id}`;
     $id('loginOverlay').style.display = 'none';
 
-    if (data.is_muted) applyChatMuted(true); // 채팅 금지 계정 — 채팅 입력창을 미리 막아둠
+    applyChatMuted(Boolean(data.is_muted)); // 이전 계정의 MUTE 상태가 남지 않도록 매번 갱신
   } catch (fetchErr) {
     console.warn('로그인 요청 실패:', fetchErr);
     err.textContent = '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.';
     err.style.display = 'block';
   } finally {
+    if (btn) btn.classList.remove('is-loading');
     if (btn) { btn.disabled = false; btn.textContent = '로그인'; }
   }
 }

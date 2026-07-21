@@ -23,14 +23,15 @@ function openReport(type, target=null) {
   }
 
   $id('modalSub').textContent = type==='voice' ? '신고할 유형을 선택해 주세요. 최근 30초 음성이 증거로 제출됩니다.' : '신고 유형을 선택해 주세요. 허위 신고는 제재를 받을 수 있습니다.';
-  $id('overlay').classList.add('open');
+  // 신고 유형 선택창 없이 버튼을 누른 즉시 신고를 접수한다.
+  submitReport();
 }
 function closeReport() { $id('overlay').classList.remove('open'); }
 function bgClose(e) { if (e.target===$id('overlay')) closeReport(); }
 async function submitReport() {
   if (reportSubmitting) return;
   const checked = document.querySelector('input[name="reason"]:checked');
-  if (!checked) return;
+  const reasonValue = checked?.value || 'other';
   reportSubmitting = true;
   const submitButton = $id('reportSubmitBtn');
   if (submitButton) {
@@ -66,9 +67,9 @@ async function submitReport() {
     return;
   }
 
-  const entryId = addReportHistory(targetUser, checked.value);
+  const entryId = addReportHistory(targetUser, reasonValue);
   closeReport();
-  showToast(reportType==='voice' ? '음성 신고가 접수되었습니다.' : '채팅 신고가 접수되었습니다.');
+  showToast('신고가 접수됐습니다.', { report: true });
   reportTarget = null;
   if (isVoiceReport) attachEvidenceAudio(entryId, targetUser);
   reportSubmitting = false;
@@ -77,9 +78,19 @@ async function submitReport() {
     submitButton.textContent = '신고 제출';
   }
 }
-function showToast(msg) {
-  const el=$id('toast'); $id('toastMsg').textContent=msg;
-  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3000);
+function showToast(msg, options = {}) {
+  const el = $id('toast');
+  $id('toastMsg').textContent = msg;
+  el.classList.toggle('report-toast', Boolean(options.report));
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    if (options.report) {
+      setTimeout(() => el.classList.remove('report-toast'), 800);
+    } else {
+      el.classList.remove('report-toast');
+    }
+  }, options.report ? 4000 : 3000);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -107,6 +118,20 @@ function addReportHistory(targetUser, reasonValue) {
   reportHistory.unshift(entry);
   renderMailbox();
   return entry.id;
+}
+
+function addSanctionNotice(data) {
+  const entry = {
+    id: Date.now() + Math.random(),
+    user: '시스템',
+    reason: data.action === 'ban' ? '계정 정지' : '채팅 제한',
+    time: nowStr(),
+    notice: data.text || '제재가 적용되었습니다.',
+    audioUrl: null,
+    audioStatus: 'none'
+  };
+  reportHistory.unshift(entry);
+  renderMailbox();
 }
 
 // 신고 접수 직후, 서버에 저장된 그 유저의 최신 녹음을 조회해서 우편함에 증거로 붙인다.
@@ -150,8 +175,9 @@ function renderMailbox() {
   badges.forEach(b => { b.style.display = 'flex'; b.textContent = reportHistory.length; });
   list.innerHTML = reportHistory.map(r => `
     <div class="mailbox-item">
-      <div class="mailbox-item-title"><span class="mi-target">${escHtml(r.user)}</span>님을 신고했습니다</div>
+      <div class="mailbox-item-title">${r.notice ? '제재 안내' : `<span class="mi-target">${escHtml(r.user)}</span>님을 신고했습니다`}</div>
       <div class="mailbox-item-meta"><span>${escHtml(r.reason)}</span><span>${r.time}</span></div>
+      ${r.notice ? `<div class="mailbox-evidence status">${escHtml(r.notice)}</div>` : ''}
       ${renderEvidence(r)}
     </div>
   `).join('');
