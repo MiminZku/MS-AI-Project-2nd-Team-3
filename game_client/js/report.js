@@ -44,8 +44,8 @@ async function submitReport() {
   if (isVoiceReport && ws && ws.readyState === WebSocket.OPEN) {
     try {
       ws.send(JSON.stringify({ type: 'request_voice_upload', target: targetUser }));
-      // 상대방 클라이언트가 웹소켓 요청을 받고 /upload-voice로 업로드할 시간을 부여합니다.
-      await new Promise(r => setTimeout(r, 500));
+      // 상대방 클라이언트가 웹소켓 요청을 받고 /upload-voice로 업로드할 시간을 충분히 부여합니다.
+      await new Promise(r => setTimeout(r, 1000));
     } catch (e) {
       console.warn('음성 업로드 요청 전송 실패:', e);
     }

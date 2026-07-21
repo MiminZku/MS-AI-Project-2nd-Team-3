@@ -254,25 +254,11 @@ async function handleAdminStreamMessage(event) {
 }
 
 function bindReportPolling() {
-  if (reportPolling) return;
-  reportPolling = setInterval(async () => {
-    if (!dashboardLoaded) return;
-    try {
-      const nextReports = await requestJson('/api/admin/reports');
-      const newReports = findNewReports(Array.isArray(nextReports) ? nextReports : []);
-      rememberSeenReports(Array.isArray(nextReports) ? nextReports : []);
-      if (!newReports.length) return;
-      const latestNewReport = newReports.sort((a, b) => {
-        const left = new Date(a.created_at || 0).getTime() || Number(a.id || 0);
-        const right = new Date(b.created_at || 0).getTime() || Number(b.id || 0);
-        return right - left;
-      })[0];
-      await loadDashboard();
-      showReportAlert({ data: latestNewReport }, { forceStage: true });
-    } catch (error) {
-      console.warn('신고 목록 폴링 중 오류가 발생했습니다.', error);
-    }
-  }, 3000);
+  // SSE (Server-Sent Events) 스트림을 전적으로 사용하므로 3초 주기 HTTP 폴링은 비활성화합니다.
+  if (reportPolling) {
+    clearInterval(reportPolling);
+    reportPolling = null;
+  }
 }
 
 function bindAdminStream() {
