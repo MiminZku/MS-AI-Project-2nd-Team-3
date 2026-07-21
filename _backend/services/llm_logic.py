@@ -31,7 +31,7 @@ except Exception as e:
     search_client = None
     SEMANTIC_CONFIG = ""
 
-def search_rag_documents(query: str, top_n: int = 8, strictness_level: int = 1) -> str:
+def search_rag_documents(query: str, top_n: int = 12, strictness_level: int = 1) -> str:
     """사용자 채팅 내용을 기반으로 Azure Search에서 관련 규정 문서를 검색합니다."""
     if not search_client or not client:
         return ""
