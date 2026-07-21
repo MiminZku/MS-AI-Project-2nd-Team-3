@@ -88,7 +88,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
         final_level = int(result.get("final_level", 0))
         
         if final_level > 0:
-            is_hitl = final_level == -1 or result.get("confidence", 1.0) < 0.7 or result.get("needs_human_review", False)
+            is_hitl = final_level == -1 or result.get("confidence", 1.0) < 0.9 or result.get("needs_human_review", False)
             if not is_hitl:
                 db = SessionLocal()
                 try:
@@ -216,7 +216,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
             try:
                 db_report = db.query(Report).filter(Report.id == report_id).first()
                 if db_report:
-                    if final_level == -1 or result.get("confidence", 1.0) < 0.7 or result.get("needs_human_review", False):
+                    if final_level == -1 or result.get("confidence", 1.0) < 0.9 or result.get("needs_human_review", False):
                         db_report.status = "PENDING_HITL"
                         db.commit()
                         from routers.admin import notify_admins
