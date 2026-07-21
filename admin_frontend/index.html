@@ -46,7 +46,6 @@
           <select id="reportStatusFilter">
             <option value="all">전체 상태</option>
             <option value="PENDING">대기</option>
-            <option value="MANUAL_REVIEW_REQUIRED">수동 검토 필요</option>
             <option value="COMPLETED">처리 완료</option>
             <option value="DISMISSED">신고 취소</option>
           </select>
@@ -60,6 +59,11 @@
           <thead><tr><th>신고번호</th><th>신고 일시</th><th>신고 유형</th><th>신고자 ID</th><th>피신고자 ID</th><th>처리 결과</th></tr></thead>
           <tbody id="reportBody"></tbody>
         </table>
+        <div class="report-pagination" id="reportPagination">
+          <button class="page-button" id="reportPrevPage" type="button">이전</button>
+          <span class="page-info" id="reportPageInfo"></span>
+          <button class="page-button" id="reportNextPage" type="button">다음</button>
+        </div>
       </div>
 
       <div class="tab-content" id="sanctions">

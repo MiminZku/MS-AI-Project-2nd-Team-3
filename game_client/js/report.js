@@ -41,22 +41,12 @@ async function submitReport() {
   const targetUser = reportTarget ? reportTarget.user : opponentName();
   const isVoiceReport = reportType === 'voice';
   
-  if (isVoiceReport && ws && ws.readyState === WebSocket.OPEN) {
-    try {
-      ws.send(JSON.stringify({ type: 'request_voice_upload', target: targetUser }));
-      // 상대방 클라이언트가 웹소켓 요청을 받고 /upload-voice로 업로드할 시간을 충분히 부여합니다.
-      await new Promise(r => setTimeout(r, 1000));
-    } catch (e) {
-      console.warn('음성 업로드 요청 전송 실패:', e);
-    }
-  }
-
   const payload = {
     reporter_id: MY_NAME,
     target_user_id: targetUser,
     channel: isVoiceReport ? 'voice' : 'text',
     content_text: isVoiceReport ? '' : (reportTarget?.text || ''),
-    content_path: isVoiceReport ? `/recordings/${targetUser}.wav` : ''
+    content_path: ''
   };
 
   try {
@@ -66,7 +56,15 @@ async function submitReport() {
       body: JSON.stringify(payload)
     });
     if (!response.ok) throw new Error(`report request failed: ${response.status}`);
-    await response.json();
+    const reportResponse = await response.json();
+    const reportId = Number(reportResponse.report_id);
+    if (isVoiceReport && Number.isFinite(reportId) && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'request_voice_upload', target: targetUser, report_id: reportId }));
+    }
+    if (isVoiceReport && !Number.isFinite(reportId)) {
+      throw new Error('voice report ID is missing');
+    }
+    payload.report_id = reportId;
   } catch (err) {
     reportSubmitting = false;
     if (submitButton) {
@@ -82,7 +80,7 @@ async function submitReport() {
   closeReport();
   showToast('신고가 접수됐습니다.', { report: true });
   reportTarget = null;
-  if (isVoiceReport) attachEvidenceAudio(entryId, targetUser);
+  if (isVoiceReport) attachEvidenceAudio(entryId, payload.report_id);
   reportSubmitting = false;
   if (submitButton) {
     submitButton.disabled = false;
@@ -146,22 +144,29 @@ function addSanctionNotice(data) {
 }
 
 // 신고 접수 직후, 서버에 저장된 그 유저의 최신 녹음을 조회해서 우편함에 증거로 붙인다.
-async function attachEvidenceAudio(entryId, targetUser) {
+async function attachEvidenceAudio(entryId, reportId) {
   const entry = reportHistory.find(r => r.id === entryId);
   if (!entry) return;
 
   entry.audioStatus = 'loading';
   renderMailbox();
 
-  try {
-    const res = await fetch(`${getHttpBase()}/report-audio?user=${encodeURIComponent(targetUser)}`);
-    if (!res.ok) { entry.audioStatus = 'none'; renderMailbox(); return; }
-    const blob = await res.blob();
-    entry.audioUrl = URL.createObjectURL(blob);
-    entry.audioStatus = 'found';
-  } catch (err) {
-    entry.audioStatus = 'none';
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const res = await fetch(`${getHttpBase()}/api/admin/reports/${reportId}/audio`);
+      if (res.ok) {
+        const blob = await res.blob();
+        entry.audioUrl = URL.createObjectURL(blob);
+        entry.audioStatus = 'found';
+        renderMailbox();
+        return;
+      }
+    } catch (err) {
+      console.warn('신고 음성 증거 조회 실패:', err);
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
+  entry.audioStatus = 'none';
   renderMailbox();
 }
 

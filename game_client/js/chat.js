@@ -127,7 +127,7 @@ function connectChat() {
         // 내가 신고를 당한 피신고자(target)인 경우에만 온디맨드로 녹음 업로드를 실행합니다.
         if (data.target && data.target === MY_NAME) {
           if (typeof uploadCurrentRecording === 'function') {
-            uploadCurrentRecording();
+            uploadCurrentRecording(data.report_id);
           }
         }
       } else if (data.type === 'game_start') {
