@@ -7,8 +7,11 @@ let dashboardLoaded = false;
 let adminStream = null;
 let reportPolling = null;
 let seenReportIds = new Set();
+let reportPage = 1;
+let reportPageCount = 1;
 
 const QUEUE_STATUSES = ['PENDING', 'MANUAL_REVIEW_REQUIRED', 'PENDING_HITL'];
+const REPORTS_PER_PAGE = 20;
 
 function byId(id) {
   return document.getElementById(id);
@@ -20,8 +23,8 @@ function apiUrl(path) {
 
 function statusLabel(status) {
   if (status === 'PENDING') return '대기';
-  if (status === 'MANUAL_REVIEW_REQUIRED') return '수동 검토 필요';
-  if (status === 'PENDING_HITL') return '수동 검토 필요';
+  if (status === 'MANUAL_REVIEW_REQUIRED') return '대기';
+  if (status === 'PENDING_HITL') return '대기';
   if (status === 'COMPLETED') return '처리 완료';
   if (status === 'DISMISSED') return '신고 기각';
   if (status === 'APPROVED') return '인용';
@@ -33,6 +36,8 @@ function reportResult(report) {
   return statusLabel(report.status);
 }
 
+const isPendingReport = (report) => QUEUE_STATUSES.includes(report.status);
+
 function contentTypeLabel(type) {
   const normalized = String(type || '').toLowerCase();
   if (normalized === 'voice') return '음성';
@@ -42,8 +47,8 @@ function contentTypeLabel(type) {
 
 function badgeClass(status) {
   if (status === 'PENDING') return 'pending';
-  if (status === 'MANUAL_REVIEW_REQUIRED') return 'review';
-  if (status === 'PENDING_HITL') return 'review';
+  if (status === 'MANUAL_REVIEW_REQUIRED') return 'pending';
+  if (status === 'PENDING_HITL') return 'pending';
   if (status === 'COMPLETED') return 'done';
   if (status === 'DISMISSED') return 'dismiss';
   if (status === 'APPROVED') return 'approve';
@@ -73,9 +78,9 @@ function audioUrlForReport(report) {
   return apiUrl(`/api/admin/reports/${report.id}/audio`);
 }
 
-function fallbackAudioUrlForReport(report) {
-  if (String(report.content_type || '').toLowerCase() !== 'voice' || !report.reported_id) return '';
-  return apiUrl(`/report-audio?user=${encodeURIComponent(report.reported_id || '')}`);
+function audioDownloadUrlForReport(report) {
+  if (String(report.content_type || '').toLowerCase() !== 'voice' || !report.id) return '';
+  return apiUrl(`/api/admin/reports/${report.id}/audio?download=1`);
 }
 
 const POLICY_BY_DISPLAY_STAGE = {
@@ -235,7 +240,7 @@ function showReportAlert(message, options = {}) {
   byId('alertStage').textContent = stage;
   byId('alertReasonBox').style.display = 'block';
   byId('alertReason').textContent = policy;
-  byId('alertReview').textContent = options.hitl ? '바로 검토' : '수동 검토';
+  byId('alertReview').textContent = '검토';
   byId('alertReview').onclick = () => openReviewSheetFromAlert(reportId, panel);
   byId('alertDismiss').onclick = () => { panel.style.display = 'none'; };
   panel.style.display = 'block';
@@ -254,11 +259,25 @@ async function handleAdminStreamMessage(event) {
 }
 
 function bindReportPolling() {
-  // SSE (Server-Sent Events) 스트림을 전적으로 사용하므로 3초 주기 HTTP 폴링은 비활성화합니다.
-  if (reportPolling) {
-    clearInterval(reportPolling);
-    reportPolling = null;
-  }
+  if (reportPolling) return;
+  reportPolling = setInterval(async () => {
+    if (!dashboardLoaded) return;
+    try {
+      const nextReports = await requestJson('/api/admin/reports');
+      const newReports = findNewReports(Array.isArray(nextReports) ? nextReports : []);
+      rememberSeenReports(Array.isArray(nextReports) ? nextReports : []);
+      if (!newReports.length) return;
+      const latestNewReport = newReports.sort((a, b) => {
+        const left = new Date(a.created_at || 0).getTime() || Number(a.id || 0);
+        const right = new Date(b.created_at || 0).getTime() || Number(b.id || 0);
+        return right - left;
+      })[0];
+      await loadDashboard();
+      showReportAlert({ data: latestNewReport }, { forceStage: true });
+    } catch (error) {
+      console.warn('신고 목록 폴링 중 오류가 발생했습니다.', error);
+    }
+  }, 3000);
 }
 
 function bindAdminStream() {
@@ -284,8 +303,8 @@ function showPendingAlert() {
   byId('alertStage').textContent = '3단계 · 중간';
   byId('alertReasonBox').style.display = 'block';
   byId('alertReason').textContent = policyForStage(3);
-  byId('alertReview').textContent = ['MANUAL_REVIEW_REQUIRED', 'PENDING_HITL'].includes(report.status) ? '바로 검토' : '수동 검토';
-  panel.classList.toggle('hitl', ['MANUAL_REVIEW_REQUIRED', 'PENDING_HITL'].includes(report.status));
+  byId('alertReview').textContent = '검토';
+  panel.classList.toggle('hitl', false);
   panel.style.display = 'block';
   byId('alertReview').onclick = () => openReviewSheetFromAlert(report.id, panel);
   byId('alertDismiss').onclick = () => { panel.style.display = 'none'; };
@@ -297,7 +316,8 @@ function renderReports() {
   const query = byId('reportSearch').value.trim().toLowerCase();
   const rows = reports.filter((report) => {
     const haystack = `${report.reporter_id} ${report.reported_id} ${reportResult(report)} ${contentTypeLabel(report.content_type)} ${reportContent(report)}`.toLowerCase();
-    return (status === 'all' || report.status === status) && (!query || haystack.includes(query));
+    const matchesStatus = status === 'all' || (status === 'PENDING' ? isPendingReport(report) : report.status === status);
+    return matchesStatus && (!query || haystack.includes(query));
   });
   rows.sort((a, b) => {
     const left = new Date(a.created_at || 0).getTime() || 0;
@@ -305,7 +325,12 @@ function renderReports() {
     return sort === 'oldest' ? left - right : right - left;
   });
 
-  byId('reportBody').innerHTML = rows.map((report) => (
+  const totalPages = Math.max(1, Math.ceil(rows.length / REPORTS_PER_PAGE));
+  reportPageCount = totalPages;
+  reportPage = Math.min(reportPage, totalPages);
+  const pageRows = rows.slice((reportPage - 1) * REPORTS_PER_PAGE, reportPage * REPORTS_PER_PAGE);
+
+  byId('reportBody').innerHTML = pageRows.map((report) => (
     `<tr>
       <td>#${report.id}</td>
       <td>${formatDateTime(report.created_at)}</td>
@@ -319,6 +344,17 @@ function renderReports() {
   if (!rows.length) {
     byId('reportBody').innerHTML = '<tr><td colspan="6" class="muted">표시할 신고가 없습니다.</td></tr>';
   }
+
+  const start = rows.length ? (reportPage - 1) * REPORTS_PER_PAGE + 1 : 0;
+  const end = Math.min(reportPage * REPORTS_PER_PAGE, rows.length);
+  byId('reportPageInfo').textContent = `${start}-${end} / ${rows.length}건 · ${reportPage}/${totalPages}페이지`;
+  byId('reportPrevPage').disabled = reportPage === 1;
+  byId('reportNextPage').disabled = reportPage === totalPages;
+}
+
+function resetReportPage() {
+  reportPage = 1;
+  renderReports();
 }
 
 function renderSanctions() {
@@ -371,7 +407,7 @@ function renderAppeals() {
 function updateSummary() {
   const today = new Date().toISOString().slice(0, 10);
   byId('statToday').textContent = reports.filter((report) => String(report.created_at || '').slice(0, 10) === today).length || reports.length;
-  byId('statPending').textContent = reports.filter((report) => QUEUE_STATUSES.includes(report.status)).length;
+  byId('statPending').textContent = reports.filter(isPendingReport).length;
   byId('statDone').textContent = reports.filter((report) => ['COMPLETED', 'DISMISSED'].includes(report.status)).length;
   byId('statSanction').textContent = sanctions.length;
 }
@@ -392,20 +428,21 @@ function openReviewSheet(reportId) {
   byId('sheetUsers').textContent = `${report.reporter_id} / ${report.reported_id}`;
   byId('sheetContent').textContent = reportContent(report);
   const audioUrl = audioUrlForReport(report);
-  const fallbackAudioUrl = fallbackAudioUrlForReport(report);
+  const audioDownloadUrl = audioDownloadUrlForReport(report);
   byId('sheetAudioStatus').textContent = '';
   byId('sheetAudio').onerror = () => {
-    if (fallbackAudioUrl && byId('sheetAudio').src !== fallbackAudioUrl) {
-      byId('sheetAudio').src = fallbackAudioUrl;
-      byId('sheetAudioLink').href = fallbackAudioUrl;
-      byId('sheetAudioStatus').textContent = '신고 ID 기반 파일을 찾지 못해 최신 녹음 조회로 다시 시도합니다.';
-      return;
-    }
-    byId('sheetAudioStatus').textContent = '음성 파일을 찾을 수 없습니다. 백엔드 재시작 또는 녹음 업로드 상태를 확인해 주세요.';
+    byId('sheetAudio').pause();
+    byId('sheetAudio').removeAttribute('src');
+    byId('sheetAudioLink').removeAttribute('href');
+    byId('sheetAudioLink').style.display = 'none';
+    byId('sheetAudioStatus').textContent = '이 신고 건에 연결된 음성 파일을 찾을 수 없습니다.';
   };
   byId('sheetAudioRow').style.display = audioUrl ? 'block' : 'none';
   byId('sheetAudio').src = audioUrl;
-  byId('sheetAudioLink').href = audioUrl;
+  byId('sheetAudioLink').href = audioDownloadUrl;
+  byId('sheetAudioLink').style.display = audioDownloadUrl ? '' : 'none';
+  byId('sheetAudioLink').setAttribute('download', `voice-report-${report.id}.wav`);
+  byId('sheetAudioLink').textContent = '음성 파일 다운로드';
   byId('sheetReason').value = report.review_reason || '';
   setSanctionPills('MUTE');
   byId('sheetOverlay').style.display = 'flex';
@@ -483,9 +520,17 @@ function bindEvents() {
       byId(tab.dataset.tab).classList.add('active');
     });
   });
-  ['reportStatusFilter', 'reportSort', 'reportSearch'].forEach((id) => byId(id).addEventListener('input', renderReports));
-  byId('reportStatusFilter').addEventListener('change', renderReports);
-  byId('reportSort').addEventListener('change', renderReports);
+  ['reportStatusFilter', 'reportSort', 'reportSearch'].forEach((id) => byId(id).addEventListener('input', resetReportPage));
+  byId('reportStatusFilter').addEventListener('change', resetReportPage);
+  byId('reportSort').addEventListener('change', resetReportPage);
+  byId('reportPrevPage').addEventListener('click', () => {
+    reportPage = Math.max(1, reportPage - 1);
+    renderReports();
+  });
+  byId('reportNextPage').addEventListener('click', () => {
+    reportPage = Math.min(reportPageCount, reportPage + 1);
+    renderReports();
+  });
   ['sanctionTypeFilter', 'sanctionSearch'].forEach((id) => byId(id).addEventListener('input', renderSanctions));
   byId('sanctionTypeFilter').addEventListener('change', renderSanctions);
   ['appealStatusFilter', 'appealSearch'].forEach((id) => byId(id).addEventListener('input', renderAppeals));

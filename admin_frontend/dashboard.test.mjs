@@ -6,7 +6,8 @@ const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const script = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
 const adminRouter = readFileSync(new URL('../_backend/routers/admin.py', import.meta.url), 'utf8');
 const gameRouter = readFileSync(new URL('../_backend/routers/game.py', import.meta.url), 'utf8');
-const backendMain = readFileSync(new URL('../_backend/main.py', import.meta.url), 'utf8');
+const gameReportScript = readFileSync(new URL('../game_client/js/report.js', import.meta.url), 'utf8');
+const gameVoiceScript = readFileSync(new URL('../game_client/js/voice.js', import.meta.url), 'utf8');
 
 test('dashboard keeps the core report, sanction, and appeal tables', () => {
   for (const id of ['reportBody', 'sanctionBody', 'appealBody']) {
@@ -29,6 +30,29 @@ test('dashboard shows report type and sorting controls in report history', () =>
   assert.match(script, /contentTypeLabel\(report\.content_type\)/);
   assert.match(script, /const sort = byId\('reportSort'\)\.value;/);
   assert.match(script, /rows\.sort\(\(a, b\) =>/);
+});
+
+test('dashboard groups all manual-review states under the pending label', () => {
+  assert.doesNotMatch(html, /value="MANUAL_REVIEW_REQUIRED"/);
+  assert.match(script, /if \(status === 'MANUAL_REVIEW_REQUIRED'\) return '대기';/);
+  assert.match(script, /if \(status === 'PENDING_HITL'\) return '대기';/);
+  assert.match(script, /const isPendingReport = \(report\) => QUEUE_STATUSES\.includes\(report\.status\);/);
+  assert.match(gameRouter, /db_report\.status = "PENDING"/);
+  assert.doesNotMatch(gameRouter, /db_report\.status = "PENDING_HITL"/);
+});
+
+test('dashboard paginates filtered report history in pages of twenty', () => {
+  for (const id of ['reportPagination', 'reportPrevPage', 'reportPageInfo', 'reportNextPage']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(script, /const REPORTS_PER_PAGE = 20;/);
+  assert.match(script, /let reportPage = 1;/);
+  assert.match(script, /const totalPages = Math\.max\(1, Math\.ceil\(rows\.length \/ REPORTS_PER_PAGE\)\);/);
+  assert.match(script, /const pageRows = rows\.slice\(\(reportPage - 1\) \* REPORTS_PER_PAGE, reportPage \* REPORTS_PER_PAGE\);/);
+  assert.match(script, /reportPageCount = totalPages;/);
+  assert.match(script, /function resetReportPage\(\)/);
+  assert.match(script, /reportPage = Math\.max\(1, reportPage - 1\);/);
+  assert.match(script, /reportPage = Math\.min\(reportPageCount, reportPage \+ 1\);/);
 });
 
 test('dashboard loads full history data from backend admin APIs', () => {
@@ -58,15 +82,33 @@ test('dashboard renders actual API report content in the alert and sheet', () =>
 
 test('dashboard lets admins play voice report files in the review sheet', () => {
   assert.match(script, /function audioUrlForReport\(report\)/);
-  assert.match(script, /function fallbackAudioUrlForReport\(report\)/);
+  assert.match(script, /function audioDownloadUrlForReport\(report\)/);
+  assert.doesNotMatch(script, /function fallbackAudioUrlForReport\(report\)/);
   assert.match(script, /String\(report\.content_type \|\| ''\)\.toLowerCase\(\) !== ['"]voice['"]/);
   assert.match(script, /\/api\/admin\/reports\/\$\{report\.id\}\/audio/);
-  assert.match(script, /\/report-audio\?user=\$\{encodeURIComponent\(report\.reported_id \|\| ''\)\}/);
+  assert.match(script, /\/api\/admin\/reports\/\$\{report\.id\}\/audio\?download=1/);
+  assert.doesNotMatch(script, /\/report-audio\?user=/);
   assert.match(script, /sheetAudio'\)\.onerror = \(\) =>/);
-  assert.match(script, /sheetAudioStatus'\)\.textContent = ['"]음성 파일을 찾을 수 없습니다/);
+  assert.match(script, /sheetAudio'\)\.removeAttribute\(['"]src['"]\)/);
+  assert.match(script, /sheetAudioLink'\)\.style\.display = ['"]none['"]/);
+  assert.match(script, /sheetAudioStatus'\)\.textContent =/);
   assert.match(script, /sheetAudio'\)\.src = audioUrl;/);
-  assert.match(script, /sheetAudioLink'\)\.href = audioUrl;/);
+  assert.match(script, /sheetAudioLink'\)\.href = audioDownloadUrl;/);
+  assert.match(script, /sheetAudioLink'\)\.setAttribute\(['"]download['"], `voice-report-\$\{report\.id\}\.wav`\)/);
   assert.match(script, /sheetAudioRow'\)\.style\.display = audioUrl \? ['"]block['"] : ['"]none['"]/);
+});
+
+test('voice evidence is stored and requested by report ID, not by the latest user recording', () => {
+  assert.match(gameReportScript, /const reportId = Number\(reportResponse\.report_id\);/);
+  assert.match(gameReportScript, /type: 'request_voice_upload', target: targetUser, report_id: reportId/);
+  assert.doesNotMatch(gameReportScript, /\/recordings\/\$\{targetUser\}\.wav/);
+  assert.doesNotMatch(gameReportScript, /\/report-audio\?user=/);
+  assert.match(gameVoiceScript, /async function uploadCurrentRecording\(reportId\)/);
+  assert.match(gameVoiceScript, /'X-Report-ID': String\(reportId\)/);
+  assert.match(gameRouter, /x_report_id: Optional\[int\] = Header\(None\)/);
+  assert.match(gameRouter, /filename = f"report_\{x_report_id\}_\{timestamp\}_\{safe_user\}\.wav"/);
+  assert.match(gameRouter, /db_report\.content_path = filepath/);
+  assert.doesNotMatch(gameRouter, /latest_recording_by_user/);
 });
 
 test('dashboard posts moderation decisions to backend admin APIs', () => {
@@ -162,10 +204,13 @@ test('backend emits report_updated SSE events after manual review decisions', ()
 });
 
 test('backend serves recorded voice files for admin playback', () => {
-  assert.match(backendMain, /RECORDINGS_DIR/);
-  assert.match(backendMain, /app\.mount\(['"]\/recordings['"]/);
-  assert.match(backendMain, /StaticFiles\(directory=str\(RECORDINGS_DIR\)\)/);
   assert.match(adminRouter, /@router\.get\(['"]\/api\/admin\/reports\/\{report_id\}\/audio['"]\)/);
   assert.match(adminRouter, /FileResponse/);
-  assert.match(adminRouter, /latest_recording_by_user/);
+  assert.match(adminRouter, /download: bool = False/);
+  assert.match(adminRouter, /content_disposition_type=/);
+  assert.match(adminRouter, /guess_audio_media_type/);
+  assert.match(adminRouter, /recording_candidates_from_path\(report\.get\("content_path"\) or ""\)/);
+  assert.match(adminRouter, /report\.get\("content_type"\) != "voice"/);
+  assert.doesNotMatch(adminRouter, /latest_recording_candidate/);
+  assert.doesNotMatch(adminRouter, /latest_recording_by_user/);
 });

@@ -282,7 +282,7 @@ function stopMicCapture() {
 /* ═══════════════════════════════════════════════════════
    음성 신고 요청 시 내 녹음 데이터 온디맨드 업로드
 ═══════════════════════════════════════════════════════ */
-async function uploadCurrentRecording() {
+async function uploadCurrentRecording(reportId) {
   if (gameMode !== 'multi') return;
 
   let blobToUpload = lastRecordingBlob;
@@ -298,23 +298,29 @@ async function uploadCurrentRecording() {
   }
 
   if (blobToUpload && blobToUpload.size > 0) {
-    uploadRecording(blobToUpload);
+    return uploadRecording(blobToUpload, reportId);
   }
 }
 
 // 💡 PROJECT.md 원칙 준수: 신고 발생 시에만 피신고자 온디맨드 업로드를 수행하므로
 // 페이지 종료 시(beforeunload) 전량 자동 업로드 로직은 제거합니다.
 
-function uploadRecording(blob) {
-  if (gameMode !== 'multi' || !blob || !blob.size) return;
+async function uploadRecording(blob, reportId) {
+  if (gameMode !== 'multi' || !blob || !blob.size || !Number.isFinite(Number(reportId))) return null;
   try {
-    fetch(`${getHttpBase()}/upload-voice`, {
+    const response = await fetch(`${getHttpBase()}/upload-voice`, {
       method: 'POST',
-      headers: { 'X-User': encodeURIComponent(MY_NAME) },
+      headers: {
+        'X-User': encodeURIComponent(MY_NAME),
+        'X-Report-ID': String(reportId)
+      },
       body: blob
-    }).catch(err => console.warn('음성 업로드 실패:', err));
+    });
+    if (!response.ok) throw new Error(`voice upload failed: ${response.status}`);
+    return response.json();
   } catch (err) {
     console.warn('음성 업로드 요청 생성 실패:', err);
+    return null;
   }
 }
 
