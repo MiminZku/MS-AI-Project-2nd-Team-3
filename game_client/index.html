@@ -11,11 +11,9 @@
 
 <!-- ── Header ── -->
 <header>
-  <div class="logo">APPLE<span>WORLD</span></div>
+  <div class="logo">APPLE<span>STORY</span></div>
   <div class="header-center">
     <button id="aiBtn" class="ai-btn on" onclick="toggleAI()">🤖 AI 모드</button>
-    <button class="restart-btn" onclick="restartToReadyRoom()">↺ 재시작</button>
-    <button class="exit-btn" onclick="showModeSelect()">🚪 나가기</button>
     <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">합이 10 = 사과 제거 | 4개↑ 동시 제거 = 상대 돌 사과!</span>
   </div>
   <div class="player-chip">
@@ -30,6 +28,7 @@
       📬
       <span class="mailbox-badge" id="mailboxBadge" style="display:none">0</span>
     </button>
+    <button class="mailbox-btn exit-btn" onclick="showModeSelect()" title="나가기" aria-label="나가기">✕</button>
     <div class="mailbox-panel" id="mailboxPanel">
       <div class="mailbox-header">신고 내역</div>
       <div class="mailbox-list" id="mailboxList">
@@ -187,7 +186,7 @@
 <!-- ── 로그인 화면 (진입 시 가장 먼저 표시) ── -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <div class="login-logo">APPLE<span>WORLD</span></div>
+    <div class="login-logo">APPLE<span>STORY</span></div>
     <div class="login-sub">로그인 후 이용해 주세요</div>
     <div class="login-field">
       <input type="text" id="loginId" placeholder="아이디" autocomplete="username">
@@ -225,7 +224,7 @@
 <!-- ── Mode Selection ── -->
 <div class="mode-overlay" id="modeOverlay">
   <div class="mode-box">
-    <div class="mode-logo">APPLE<span>WORLD</span></div>
+    <div class="mode-logo">APPLE<span>STORY</span></div>
     <div class="mode-tagline">합이 10이 되도록 드래그하여 사과를 제거하세요</div>
     <div class="mode-cards">
       <div class="mode-card" onclick="selectMode('ai')">
