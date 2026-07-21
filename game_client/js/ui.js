@@ -18,7 +18,39 @@ function showModeSelect() {
   $id('modeOverlay').style.display = 'flex';
 }
 
+function showRestartChoice() {
+  if ($id('restartChoiceOverlay')) {
+    $id('restartChoiceOverlay').remove();
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'restartChoiceOverlay';
+  overlay.className = 'restart-choice-overlay';
+  overlay.innerHTML = `
+    <div class="restart-choice-box">
+      <div class="restart-choice-title">다시 시작하시겠습니까?</div>
+      <div class="restart-choice-desc">대기실로 이동하거나 게임을 나갈 수 있습니다.</div>
+      <div class="restart-choice-actions">
+        <button class="go-btn" type="button" id="restartToReadyBtn">대기실로 이동</button>
+        <button class="go-btn restart-choice-exit" type="button" id="restartToExitBtn">나가기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#restartToReadyBtn').onclick = () => {
+    overlay.remove();
+    proceedToReadyRoom();
+  };
+  overlay.querySelector('#restartToExitBtn').onclick = () => {
+    overlay.remove();
+    showModeSelect();
+  };
+}
+
 function restartToReadyRoom() {
+  showRestartChoice();
+}
+
+function proceedToReadyRoom() {
   clearInterval(timerInterval);
   clearTimeout(aiTimeout);
   clearTimeout(aiMoveTimeout);
@@ -111,7 +143,6 @@ function confirmGameStart() {
   // 재시작 시 이전 게임의 WebRTC 상태가 남아 있지 않도록 새 통화를 준비한다.
   webRtcRestartPending = true;
   closeWebRTC();
-  maybeStartWebRTC();
   beginGame();
 }
 
