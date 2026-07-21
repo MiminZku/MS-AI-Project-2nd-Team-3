@@ -248,7 +248,6 @@ function appendChatMsg(msg) {
   ch.appendChild(div);
   ch.scrollTop = ch.scrollHeight;
 }
-
 function appendSystemMsg(text) {
   const ch = $id('chatHistory');
   const div = document.createElement('div');
@@ -256,17 +255,4 @@ function appendSystemMsg(text) {
   div.innerHTML = `<div class="msg-text">${text}</div>`;
   ch.appendChild(div);
   ch.scrollTop = ch.scrollHeight;
-}
-
-/* ═══════════════════════════════════════════════════════
-   임시: 신고 기능 테스트용 예시 채팅
-   (실 서버 채팅 히스토리가 없을 때도 신고 버튼을 확인할 수 있게)
-═══════════════════════════════════════════════════════ */
-function seedDemoChatMessages() {
-  const demoMessages = [
-    { user: '상대방', text: '오 잘하시네요 ㅋㅋ', time: nowStr() },
-    { user: '상대방', text: '아 짜증나네 진짜', time: nowStr() },
-    { user: '상대방', text: '광고) 무료 코인 받아가세요 bit.ly/xxxxx', time: nowStr() }
-  ];
-  demoMessages.forEach(appendChatMsg);
 }
