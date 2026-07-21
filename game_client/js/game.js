@@ -132,7 +132,12 @@ function endGame() {
   $id('goP2Score').className = 'go-sv' + (winner === 2 ? ' winner' : '');
   $id('goP2Name').textContent = p2Name;
   goOverlay.classList.add('show');
-  showRestartChoice();
+}
+
+function updateP2ScoreLabel() {
+  if (gameMode !== 'multi' || p2AI) return;
+  const hint = $id('p2BannerHint');
+  if (hint) hint.textContent = `점수: ${(P[2]?.score || 0).toLocaleString()}점`;
 }
 
 function updateHUD(pid) {
@@ -140,6 +145,7 @@ function updateHUD(pid) {
   $id(`p${pid}Score`).textContent = p.score.toLocaleString();
   $id(`p${pid}Removed`).textContent = p.removed;
   $id(`p${pid}Attacks`).textContent = p.attacks;
+  if (pid === 2) updateP2ScoreLabel();
 }
 
 /* ═══════════════════════════════════════════════════════

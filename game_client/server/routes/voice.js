@@ -33,7 +33,7 @@ function uploadVoice(req, res) {
     if (!chunks.length) { res.writeHead(400); res.end('empty'); return; }
     const buffer = Buffer.concat(chunks);
     const safeUser = user.replace(/[^a-zA-Z0-9_가-힣]/g, '_') || 'unknown';
-    const filepath = path.join(RECORDINGS_DIR, `${safeUser}.webm`);
+    const filepath = path.join(RECORDINGS_DIR, `${safeUser}.wav`);
     fs.writeFile(filepath, buffer, (err) => {
       if (err) { res.writeHead(500); res.end('write error'); return; }
       latestRecordingByUser.set(user, { filepath, time: Date.now() });
@@ -47,7 +47,7 @@ function reportAudio(req, res, url) {
   const targetUser = (url.searchParams.get('user') || '').slice(0, MAX_NAME_LEN);
   const rec = latestRecordingByUser.get(targetUser);
   if (!rec || !fs.existsSync(rec.filepath)) { res.writeHead(404); res.end('not found'); return; }
-  res.writeHead(200, { 'Content-Type': 'audio/webm' });
+  res.writeHead(200, { 'Content-Type': 'audio/wav' });
   fs.createReadStream(rec.filepath).pipe(res);
 }
 
