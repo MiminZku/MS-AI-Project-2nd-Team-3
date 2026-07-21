@@ -76,7 +76,11 @@ class AppealSubmission(BaseModel):
     user_id: str
     reason: str
 
-QUEUE_STATUSES = ("PENDING", "MANUAL_REVIEW_REQUIRED")
+class AppealRejection(BaseModel):
+    reason: str
+    reviewer_id: str
+
+QUEUE_STATUSES = ("PENDING", "MANUAL_REVIEW_REQUIRED", "PENDING_HITL")
 
 class SanctionCreate(BaseModel):
     sanction_type: Literal["warn", "mute_1d", "mute_7d", "ban_perm"]
@@ -173,15 +177,15 @@ async def create_sanction(report_id: int, body: SanctionCreate):
             if duration_days == 0:
                 cur.execute("UPDATE users SET banned_until = '2099-12-31' WHERE id = %s;", (reported_id,))
             else:
-                cur.execute("UPDATE users SET banned_until = NOW() + INTERVAL '%s days' WHERE id = %s;", (duration_days, reported_id))
+                cur.execute("UPDATE users SET banned_until = NOW() + (%s * INTERVAL '1 day') WHERE id = %s;", (duration_days, reported_id))
         else:
-            cur.execute("UPDATE users SET muted_until = NOW() + INTERVAL '%s days' WHERE id = %s;", (duration_days, reported_id))
+            cur.execute("UPDATE users SET muted_until = NOW() + (%s * INTERVAL '1 day') WHERE id = %s;", (duration_days, reported_id))
 
     # 실시간 웹소켓 제재 반영 (모놀리식 서버 통합의 핵심)
     if sanction_type == "BAN":
-        await manager.ban_user(reported_id, f"관리자 제재: {body.reason}")
+        await manager.ban_user(reported_id, f"관리자 제재 조치", body.reason)
     else:
-        await manager.mute_user(reported_id, f"관리자 제재: {body.reason}")
+        await manager.mute_user(reported_id, f"관리자 제재 조치", body.reason)
 
     return {"report_id": report_id, "sanction": sanction, "game_server_sync": {"ok": True, "data": "Local memory updated"}}
 
@@ -234,7 +238,7 @@ async def send_sanction_command(command: SanctionCommand):
 
     # 실시간 웹소켓 제재 반영 (모놀리식 서버 통합)
     if command.action == "approve":
-        await manager.ban_user(reported_id, f"신고 승인 - 제재 조치됨")
+        await manager.ban_user(reported_id, f"신고 승인 - 제재 조치됨", "관리자 신고 승인에 의한 수동 제재")
 
     return {
         "report_id": command.report_id,
@@ -251,3 +255,18 @@ def submit_appeal(appeal: AppealSubmission):
         )
         created = cur.fetchone()
     return created
+
+@router.post("/api/admin/appeals/{appeal_id}/reject")
+def reject_appeal(appeal_id: int, body: AppealRejection):
+    """이의신청을 기각한다. 원 제재는 그대로 유지되며 appeals.status만 REJECTED로 바뀐다."""
+    with get_db_cursor() as cur:
+        cur.execute("SELECT id, status FROM appeals WHERE id = %s;", (appeal_id,))
+        appeal = cur.fetchone()
+        if not appeal:
+            raise HTTPException(status_code=404, detail="해당 appeal_id의 이의신청을 찾을 수 없습니다.")
+        if appeal["status"] != "PENDING":
+            raise HTTPException(status_code=409, detail="이미 처리된 이의신청입니다.")
+
+        cur.execute("UPDATE appeals SET status = 'REJECTED' WHERE id = %s;", (appeal_id,))
+
+    return {"appeal_id": appeal_id, "status": "REJECTED", "reason": body.reason, "reviewer_id": body.reviewer_id}

@@ -18,7 +18,39 @@ function showModeSelect() {
   $id('modeOverlay').style.display = 'flex';
 }
 
+function showRestartChoice() {
+  if ($id('restartChoiceOverlay')) {
+    $id('restartChoiceOverlay').remove();
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'restartChoiceOverlay';
+  overlay.className = 'restart-choice-overlay';
+  overlay.innerHTML = `
+    <div class="restart-choice-box">
+      <div class="restart-choice-title">다시 시작하시겠습니까?</div>
+      <div class="restart-choice-desc">대기실로 이동하거나 게임을 나갈 수 있습니다.</div>
+      <div class="restart-choice-actions">
+        <button class="go-btn" type="button" id="restartToReadyBtn">대기실로 이동</button>
+        <button class="go-btn restart-choice-exit" type="button" id="restartToExitBtn">나가기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#restartToReadyBtn').onclick = () => {
+    overlay.remove();
+    proceedToReadyRoom();
+  };
+  overlay.querySelector('#restartToExitBtn').onclick = () => {
+    overlay.remove();
+    showModeSelect();
+  };
+}
+
 function restartToReadyRoom() {
+  proceedToReadyRoom();
+}
+
+function proceedToReadyRoom() {
   clearInterval(timerInterval);
   clearTimeout(aiTimeout);
   clearTimeout(aiMoveTimeout);
@@ -45,6 +77,7 @@ function selectMode(mode) {
     $id('aiBtn').classList.remove('on');
     currentOpponentName = null; // 이전 매치의 상대 정보가 남아있지 않도록 초기화
     updateOpponentDisplay();
+    updateP2ScoreLabel();
     setPresence(1); // 서버 응답이 오기 전까지는 나뿐이므로 대기 화면부터 표시
     $id('chatHistory').innerHTML = '';
     seedDemoChatMessages(); // 임시: 신고 버튼 테스트용 예시 채팅
@@ -67,8 +100,10 @@ function selectMode(mode) {
    BAN 강제 퇴장 — 게임 도중 서버가 계정을 정지시키면
    (system 메시지 + 소켓 강제 종료) 로그인 화면으로 돌려보냄
 ═══════════════════════════════════════════════════════ */
-function kickToLogin(message) {
-  alert(message || '계정이 정지되어 로그아웃되었습니다.');
+function kickToLogin(message, options = {}) {
+  if (!options.silent) {
+    alert(message || '계정이 정지되어 로그아웃되었습니다.');
+  }
 
   clearInterval(timerInterval);
   clearTimeout(aiTimeout);
@@ -102,12 +137,19 @@ function showReadyScreen(mode) {
   $id('readyOverlay').classList.add('show');
 }
 
-function confirmGameStart() {
+function confirmGameStart(isRemote = false) {
   // '마이크 사용'을 체크한 경우에만 이번 라운드 녹음 진행 (스피커 출력은 녹음과 무관)
   recordingConsented = $id('consentMic').checked;
   $id('readyOverlay').classList.remove('show');
-  maybeStartWebRTC();
+  // 재시작 시 이전 게임의 WebRTC 상태가 남아 있지 않도록 새 통화를 준비한다.
+  webRtcRestartPending = true;
+  closeWebRTC();
   beginGame();
+  
+  // 멀티플레이에서 내가 직접 누른 경우 상대방에게도 시작 신호를 보냄
+  if (!isRemote && gameMode === 'multi' && typeof ws !== 'undefined' && ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'game_start' }));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════

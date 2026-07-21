@@ -95,6 +95,8 @@ function startGame() {
 
   timerInterval = setInterval(tick, 1000);
   if (p2AI) scheduleAI();
+  // 대기실이 아닌 실제 게임 시작 시점에만 음성 통화를 연결한다.
+  maybeStartWebRTC();
   startRecording(); // 게임 시작과 동시에 음성 녹음 자동 시작 (AI/멀티 모드 공통)
 }
 
@@ -113,6 +115,8 @@ function endGame() {
   clearTimeout(aiMoveTimeout);
   gameActive = false;
   stopRecording(); // 게임 종료 시점까지만 녹음
+  stopMicCapture(); // 게임이 끝나면 마이크 장치도 즉시 해제
+  closeWebRTC(); // 다음 게임에서 새 마이크 트랙으로 다시 연결할 수 있도록 초기화
 
   // 종료 시점에 드래그가 진행 중이었다면 취소하고 시각효과를 정리 (종료 후 점수 반영 방지)
   if (drag.on) { drag.on = false; clearDragVisuals(drag.pid); }
@@ -130,11 +134,18 @@ function endGame() {
   goOverlay.classList.add('show');
 }
 
+function updateP2ScoreLabel() {
+  if (gameMode !== 'multi' || p2AI) return;
+  const hint = $id('p2BannerHint');
+  if (hint) hint.textContent = `점수: ${(P[2]?.score || 0).toLocaleString()}점`;
+}
+
 function updateHUD(pid) {
   const p = P[pid];
   $id(`p${pid}Score`).textContent = p.score.toLocaleString();
   $id(`p${pid}Removed`).textContent = p.removed;
   $id(`p${pid}Attacks`).textContent = p.attacks;
+  if (pid === 2) updateP2ScoreLabel();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -234,7 +245,9 @@ function processSelection() {
 function drawSelRect(ctx, canvas, x, y, w, h, sum, count) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (w < 2 && h < 2) return;
-  const fill   = sum === 10 ? 'rgba(14,169,104,.14)' : sum > 10 ? 'rgba(224,51,90,.12)' : 'rgba(108,99,255,.12)';
+  // 합계 10 성공 상태에서는 선택 범위 전체에 반투명 레이어를 깔지 않고 테두리만 표시한다.
+  // 선택 범위가 넓을 때 보드 전체가 흐릿해 보이는 현상을 방지한다.
+  const fill   = sum === 10 ? 'rgba(0,0,0,0)' : sum > 10 ? 'rgba(224,51,90,.12)' : 'rgba(108,99,255,.12)';
   const stroke = sum === 10 ? '#0EA968'               : sum > 10 ? '#E0335A'            : '#6C63FF';
   ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 2;
   ctx.setLineDash(sum === 10 ? [] : [5,3]);

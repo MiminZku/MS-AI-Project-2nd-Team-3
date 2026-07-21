@@ -25,7 +25,7 @@ search_client = SearchClient(
 # 이 한 글자가 "매칭된 문서 없음" 문제의 직접적인 해결책입니다.
 #top_n=3 → 8: 이 판정은 4개 카테고리를 동시에 채점해야 하는데, 3개만 가져오면 욕설 기준은 와도 패드립·폭력성 기준이 안 올 수 있습니다. 
 # 청크가 17개뿐이니 8개를 가져와도 부담 없고, 오히려 정확도에 유리합니다.
-def search_rag_documents(query, top_n=8, strictness_level=1): # 테스트를 위해 우선 1로 세팅
+def search_rag_documents(query, top_n=12, strictness_level=1): # 22청크로 늘어 top_n 8→12 (음란성 청크 미검색 대응)
     try:
         # 1. 사용자의 질문을 임베딩 모델을 사용해 벡터(숫자 배열)로 실시간 변환
         embedding_response = ai_client.embeddings.create(

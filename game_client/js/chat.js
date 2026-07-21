@@ -60,6 +60,28 @@ function getHttpBase() {
   return `http://${getServerAddr()}`;
 }
 
+function showSanctionPopup({ text = '', aiReason = '', isBan = false }) {
+  document.getElementById('sanctionPopup')?.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'sanctionPopup';
+  popup.className = 'sanction-popup-overlay';
+  popup.innerHTML = `
+    <div class="sanction-popup" role="alertdialog" aria-modal="true">
+      <div class="sanction-popup-title">제재 안내</div>
+      <div class="sanction-popup-summary">${escHtml(text || '제재 안내를 받았습니다.')}</div>
+      ${aiReason ? `<div class="sanction-popup-reason"><div class="sanction-popup-label">상세 제재 사유</div><div>${escHtml(String(aiReason))}</div></div>` : ''}
+      <button type="button" class="sanction-popup-confirm">${isBan ? '로그인 화면으로' : '확인'}</button>
+    </div>`;
+
+  const close = () => {
+    popup.remove();
+    if (isBan) kickToLogin(text || '계정이 정지되어 강제 퇴장되었습니다.', { silent: true });
+  };
+  popup.querySelector('.sanction-popup-confirm').addEventListener('click', close);
+  document.body.appendChild(popup);
+}
+
 function connectChat() {
   // 이전 연결이 남아있으면 먼저 정리 (중복 소켓/중복 메시지 수신 방지)
   if (ws) {
@@ -99,17 +121,77 @@ function connectChat() {
           appendSystemMsg(`— ${escHtml(prevOpponent)}님이 퇴장했습니다 —`);
         }
         updateOpponentDisplay();
-        if (data.name) maybeStartWebRTC();
       } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'webrtc_renegotiate') {
         handleWebRtcMessage(data);
+      } else if (data.type === 'request_voice_upload') {
+        if (typeof uploadCurrentRecording === 'function') {
+          uploadCurrentRecording();
+        }
+      } else if (data.type === 'game_start') {
+        if ($id('readyOverlay').classList.contains('show')) {
+          showToast("상대방이 게임을 시작했습니다.");
+          if (typeof confirmGameStart === 'function') {
+            confirmGameStart(true);
+          }
+        }
+      } else if (data.type === 'sanction_notice') {
+        addSanctionNotice(data);
+        showToast(data.text || '제재 안내가 우편함에 도착했습니다.');
       } else if (data.type === 'full') {
         setChatStatus('🔴 방이 가득 참', 'var(--danger)');
         appendSystemMsg('— 이미 다른 두 명이 접속 중입니다 —');
       } else if (data.type === 'system') {
         const text = typeof data.text === 'string' ? data.text : '';
-        if (text.includes('정지') || text.includes('강제 퇴장')) {
-          // BAN 알림 — 서버가 이 메시지 직후 소켓을 강제로 닫으므로, 실제 처리는 onclose에서 함
-          pendingBanMessage = text || '계정이 정지되어 강제 퇴장되었습니다.';
+        const action = String(data.action || data.sanction_type || '').toLowerCase();
+        const isBanNotice = action === 'ban' || action === 'banned' || /계정.*정지|강제\s*퇴장/.test(text);
+        const isWarningNotice = action === 'warning' || action === 'warn' || /경고|주의/.test(text);
+        const isMuteNotice = action === 'mute' || action === 'muted' || /채팅\s*금지/.test(text);
+        const isMuteReleasedNotice = action === 'mute_released' || /채팅\s*금지.*해제/.test(text);
+
+        if (isMuteReleasedNotice) {
+          applyChatMuted(false, text || '채팅 금지가 해제되었습니다.');
+          showSanctionPopup({ text: text || '채팅 금지가 해제되었습니다.' });
+          return;
+        }
+        if (isBanNotice) {
+          pendingBanMessage = null;
+          showSanctionPopup({ text, aiReason: data.ai_reason, isBan: true });
+          return;
+        }
+        if (isWarningNotice) {
+          appendSystemMsg(escHtml(text || '경고가 적용되었습니다.'));
+          showSanctionPopup({ text, aiReason: data.ai_reason });
+          return;
+        }
+        if (isMuteNotice) {
+          applyChatMuted(true, text || '채팅 금지 상태입니다.');
+          showSanctionPopup({ text, aiReason: data.ai_reason });
+          return;
+        }
+        showSanctionPopup({ text, aiReason: data.ai_reason });
+        return;
+        // 서버가 보내는 경고 메시지는 채팅 금지로 오인하지 않고 별도 팝업으로 안내한다.
+        if (action === 'warning' || action === 'warn' || /경고|주의/.test(text)) {
+          appendSystemMsg(escHtml(text || '경고가 적용되었습니다.'));
+          alert(`경고 안내\n${text || '운영 정책에 따라 경고가 적용되었습니다.'}`);
+          return;
+        }
+        if (action === 'ban' || action === 'banned' || /계정.*정지|강제\s*퇴장/.test(text)) {
+          pendingBanMessage = null;
+          kickToLogin(text || '계정이 정지되어 강제 퇴장되었습니다.');
+          return;
+        }
+        if (action === 'mute' || action === 'muted') {
+          alert(`채팅 금지 안내\n${text || '채팅 금지 상태가 적용되었습니다.'}`);
+        }
+        if (data.action === 'mute_released' || text.includes('채팅 금지가 해제') || text.includes('채팅 금지 해제')) {
+          applyChatMuted(false, text || '채팅 금지가 해제되었습니다.');
+        } else if (text.includes('정지') || text.includes('강제 퇴장')) {
+          // BAN 알림을 받는 즉시 팝업과 로그인 화면 전환을 실행한다.
+          // 서버가 곧바로 소켓을 닫으므로 onclose에서는 중복 처리하지 않는다.
+          const banMessage = text || '계정이 정지되어 강제 퇴장되었습니다.';
+          pendingBanMessage = null;
+          kickToLogin(banMessage);
         } else {
           applyChatMuted(true, text || '채팅이 금지되었습니다.');
         }
