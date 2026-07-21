@@ -13,6 +13,73 @@ function formatRestrictionTime(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+let appealSubmitting = false;
+
+function openAppealModal() {
+  const loginId = $id('loginId')?.value.trim() || '';
+  $id('appealUserId').value = loginId;
+  $id('appealReason').value = '';
+  $id('appealError').textContent = '';
+  $id('appealOverlay').classList.add('open');
+  setTimeout(() => $id('appealUserId')?.focus(), 0);
+}
+
+function closeAppealModal() {
+  if (appealSubmitting) return;
+  $id('appealOverlay').classList.remove('open');
+}
+
+function closeAppealOnBackground(event) {
+  if (event.target === $id('appealOverlay')) closeAppealModal();
+}
+
+async function submitAppeal() {
+  if (appealSubmitting) return;
+
+  const userId = $id('appealUserId').value.trim();
+  const reason = $id('appealReason').value.trim();
+  const error = $id('appealError');
+  const button = $id('appealSubmitBtn');
+
+  if (!userId || !reason) {
+    error.textContent = '아이디와 이의신청 사유를 모두 입력해 주세요.';
+    return;
+  }
+
+  appealSubmitting = true;
+  button.disabled = true;
+  button.textContent = '전송 중...';
+  error.textContent = '서버로 이의신청을 전송하고 있습니다.';
+
+  try {
+    const response = await fetch(`${getHttpBase()}/api/appeals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report_id: null, user_id: userId, reason })
+    });
+
+    if (!response.ok) throw new Error(`appeal request failed: ${response.status}`);
+
+    error.style.color = 'var(--success)';
+    error.textContent = '이의신청이 접수되었습니다.';
+    button.textContent = '접수 완료';
+    setTimeout(() => {
+      $id('appealOverlay').classList.remove('open');
+      error.style.color = '';
+      button.disabled = false;
+      button.textContent = '전송';
+      appealSubmitting = false;
+    }, 1200);
+  } catch (submitError) {
+    console.warn('이의신청 전송 실패:', submitError);
+    error.style.color = '';
+    error.textContent = '서버에 접속하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    button.disabled = false;
+    button.textContent = '전송';
+    appealSubmitting = false;
+  }
+}
+
 async function submitLogin() {
   const id = $id('loginId').value.trim();
   const err = $id('loginError');
@@ -59,7 +126,8 @@ async function submitLogin() {
     $id('playerName').textContent = id;
     $id('playerAvatar').textContent = id.slice(0, 2);
     $id('p1Label').textContent = id;
-    $id('p1BannerName').textContent = id;
+    const p1BannerName = $id('p1BannerName');
+    if (p1BannerName) p1BannerName.textContent = id;
     $id('goP1Name').textContent = `🎮 ${id}`;
     $id('loginOverlay').style.display = 'none';
     // 강제 퇴장 후 재로그인하는 경우 숨겨져 있던 모드 선택 화면을 복구한다.
@@ -94,7 +162,8 @@ function submitNickname() {
 
   // "플레이어 1" 자리(HUD/배너/결과화면)를 전부 내 닉네임으로 교체 — 모드와 무관하게 나는 항상 P1
   $id('p1Label').textContent = nickname;
-  $id('p1BannerName').textContent = nickname;
+  const p1BannerName = $id('p1BannerName');
+  if (p1BannerName) p1BannerName.textContent = nickname;
   $id('goP1Name').textContent = `🎮 ${nickname}`;
 
   $id('nicknameOverlay').classList.remove('show');
