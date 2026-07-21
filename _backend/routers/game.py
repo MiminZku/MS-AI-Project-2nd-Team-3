@@ -14,6 +14,24 @@ import re
 
 router = APIRouter()
 
+
+def build_mail_content(category, level, sanction_type, duration_days, violation_count, reason):
+    """제재 안내 우편 본문을 코드에서 조립한다. (AI 호출 없음, 기간은 매트릭스 확정값 사용)"""
+    if sanction_type == "WARN":
+        action = "경고 조치"
+    elif sanction_type == "MUTE":
+        action = f"채팅 제한 {duration_days}일 조치"
+    elif duration_days >= 9999:
+        action = "영구 이용제한 조치"
+    else:
+        action = f"게임 이용정지 {duration_days}일 조치"
+    return (
+        f"[제재 안내] 회원님의 채팅에서 '{category}' {level}단계에 해당하는 표현이 확인되어 "
+        f"{action}가 적용되었습니다. (동일 유형 {violation_count}차 적발) "
+        f"판정 근거: {reason} "
+        f"이의가 있으실 경우 고객센터를 통해 이의를 제기하실 수 있습니다."
+    )
+
 RECORDINGS_DIR = "recordings"
 os.makedirs(RECORDINGS_DIR, exist_ok=True)
 
@@ -172,7 +190,13 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                         else: sanction_type, duration_days = "BAN", 9999
                     else: # final_level >= 4
                         sanction_type, duration_days = "BAN", 9999
-                    
+
+                    mail_content = build_mail_content(
+                        primary_category, final_level, sanction_type,
+                        duration_days, violation_count, result.get("reason", "")
+                    )
+                    result["mail_content"] = mail_content   # ai_result에 저장돼 관리자 대시보드가 봄 + 계약 충족
+
                     # 4. 제재 정보 DB 반영
                     sanction = Sanction(
                         user_id=target_user_id,
@@ -204,7 +228,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
                     db.close()
 
                 # 5. 실시간 소켓 액션
-                ai_reason = result.get("reason", "")
+                ai_reason = mail_content
                 if sanction_type == "BAN":
                     await manager.broadcast({"type": "chat", "message": {"user": "시스템", "text": f"🚨 {target_user_id}님이 유해발언(Lv.{final_level})으로 제재되었습니다. ({primary_category} {violation_count}차 적발, {duration_days}일 게임 정지)", "time": "now"}})
                     await manager.ban_user(target_user_id, f"욕설 감지 (Lv.{final_level}, {primary_category} {violation_count}차 누적 적발)", ai_reason)
@@ -385,9 +409,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         await other_ws.send_json(data)
 
     except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+    finally:
         manager.disconnect(websocket)
-        await manager.broadcast_presence()
-        await manager.broadcast_opponent_info()
+        # manager.disconnect 에는 async 함수를 직접 호출하지 않지만, 브로드캐스트는 async입니다.
+        try:
+            await manager.broadcast_presence()
+            await manager.broadcast_opponent_info()
+        except Exception:
+            pass
 
 @router.post("/upload-voice")
 async def upload_voice(request: Request, x_user: Optional[str] = Header("unknown")):
