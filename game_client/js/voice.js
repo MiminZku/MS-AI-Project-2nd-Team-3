@@ -56,7 +56,14 @@ async function ensureMicStream() {
 }
 
 async function handleMicConsentChange(event) {
-  if (!event.target.checked) return;
+  if (!event.target.checked) {
+    recordingConsented = false;
+    stopRecording();
+    stopMicCapture();
+    micMuted = true;
+    updateMicMuteUI();
+    return;
+  }
 
   const stream = await ensureMicStream();
   if (!stream) {
@@ -69,7 +76,9 @@ async function handleMicConsentChange(event) {
     }
     return;
   }
-  
+  micMuted = false;
+  updateMicMuteUI();
+
   // 이미 연결된 WebRTC가 있으면 재협상(Renegotiation) 수행
   if (peerConnection && webRtcCallStarted) {
     const senders = peerConnection.getSenders();
@@ -108,6 +117,8 @@ function toggleMicMute() {
 function updateMicMuteUI() {
   const btn = $id('micMuteBtn');
   if (!btn) return;
+  const icon = $id('micIcon');
+  if (icon) icon.textContent = micMuted ? '🔇' : '🎤';
   btn.classList.toggle('muted', micMuted);
   btn.title = micMuted ? '마이크 꺼짐 (클릭하여 켜기)' : '마이크 켜짐 (클릭하여 끄기)';
 }
@@ -212,7 +223,6 @@ function stopRecording() {
 async function startRecording() {
   if (recOn) return;
   if (!recordingConsented) {
-    showToast('음성/마이크 사용에 동의하지 않아 녹음되지 않습니다');
     return;
   }
 
