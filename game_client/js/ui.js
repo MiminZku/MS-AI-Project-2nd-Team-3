@@ -18,33 +18,6 @@ function showModeSelect() {
   $id('modeOverlay').style.display = 'flex';
 }
 
-function showRestartChoice() {
-  document.getElementById('restartChoiceOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'restartChoiceOverlay';
-  overlay.className = 'restart-choice-overlay';
-  overlay.innerHTML = `
-    <div class="restart-choice-box" role="dialog" aria-modal="true">
-      <div class="restart-choice-title">다시 시작하시겠습니까?</div>
-      <div class="restart-choice-desc">대기실로 이동하거나 게임을 나갈 수 있습니다.</div>
-      <div class="restart-choice-actions">
-        <button class="go-btn" type="button" data-action="ready">대기실로 이동</button>
-        <button class="go-btn restart-choice-exit" type="button" data-action="exit">나가기</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  overlay.querySelector('[data-action="ready"]').onclick = () => {
-    overlay.remove();
-    restartToReadyRoom();
-  };
-  overlay.querySelector('[data-action="exit"]').onclick = () => {
-    overlay.remove();
-    showModeSelect();
-  };
-}
-
 function restartToReadyRoom() {
   clearInterval(timerInterval);
   clearTimeout(aiTimeout);
