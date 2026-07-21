@@ -45,6 +45,11 @@ class GameStateManager:
         
         if target_ws:
             try:
+                await target_ws.send_json({
+                    "type": "sanction_notice",
+                    "action": "mute",
+                    "text": f"채팅 금지 제재가 적용되었습니다. {reason}"
+                })
                 await target_ws.send_json({"type": "system", "text": f"채팅이 금지되었습니다: {reason}"})
             except:
                 pass
@@ -58,6 +63,11 @@ class GameStateManager:
         
         if target_ws:
             try:
+                await target_ws.send_json({
+                    "type": "sanction_notice",
+                    "action": "ban",
+                    "text": f"계정 정지 제재가 적용되었습니다. {reason}"
+                })
                 await target_ws.send_json({"type": "system", "text": f"계정이 정지(강제 퇴장)되었습니다: {reason}"})
                 await target_ws.close()
             except:
