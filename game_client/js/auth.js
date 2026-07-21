@@ -20,8 +20,31 @@ function openAppealModal() {
   $id('appealUserId').value = loginId;
   $id('appealReason').value = '';
   $id('appealError').textContent = '';
+  $id('appealLatest').classList.remove('show');
+  $id('appealLatest').textContent = '';
   $id('appealOverlay').classList.add('open');
   setTimeout(() => $id('appealUserId')?.focus(), 0);
+  if (loginId) loadLatestAppeal(loginId);
+}
+
+function appealStatusLabel(status) {
+  return ({ PENDING: '검토 대기', APPROVED: '승인', REJECTED: '반려' })[status] || status || '상태 확인 중';
+}
+
+async function loadLatestAppeal(userId) {
+  const latest = $id('appealLatest');
+  try {
+    const response = await fetch(`${getHttpBase()}/api/client/appeals/latest?user_id=${encodeURIComponent(userId)}`);
+    if (!response.ok) throw new Error(`latest appeal request failed: ${response.status}`);
+    const data = await response.json();
+    const appeal = data.appeal;
+    if (!appeal) return;
+
+    latest.innerHTML = `<strong>최근 이의신청</strong><br>상태: ${appealStatusLabel(appeal.status)}<br>사유: ${escHtml(String(appeal.reason || '-'))}<br>접수: ${formatRestrictionTime(appeal.created_at)}`;
+    latest.classList.add('show');
+  } catch (error) {
+    console.warn('최근 이의신청 조회 실패:', error);
+  }
 }
 
 function closeAppealModal() {
@@ -52,10 +75,10 @@ async function submitAppeal() {
   error.textContent = '서버로 이의신청을 전송하고 있습니다.';
 
   try {
-    const response = await fetch(`${getHttpBase()}/api/appeals`, {
+    const response = await fetch(`${getHttpBase()}/api/client/appeals`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report_id: null, user_id: userId, reason })
+      body: JSON.stringify({ user_id: userId, reason })
     });
 
     if (!response.ok) throw new Error(`appeal request failed: ${response.status}`);
@@ -63,6 +86,9 @@ async function submitAppeal() {
     error.style.color = 'var(--success)';
     error.textContent = '이의신청이 접수되었습니다.';
     button.textContent = '접수 완료';
+    const latest = $id('appealLatest');
+    latest.innerHTML = `<strong>최근 이의신청</strong><br>상태: 검토 대기<br>사유: ${escHtml(reason)}<br>접수: 방금 전`;
+    latest.classList.add('show');
     setTimeout(() => {
       $id('appealOverlay').classList.remove('open');
       error.style.color = '';
