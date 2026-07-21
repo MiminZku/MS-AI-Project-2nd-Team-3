@@ -124,6 +124,13 @@ function connectChat() {
         if (data.name) maybeStartWebRTC();
       } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'webrtc_renegotiate') {
         handleWebRtcMessage(data);
+      } else if (data.type === 'game_start') {
+        if ($id('readyOverlay').classList.contains('show')) {
+          showToast("상대방이 게임을 시작했습니다.");
+          if (typeof confirmGameStart === 'function') {
+            confirmGameStart(true);
+          }
+        }
       } else if (data.type === 'sanction_notice') {
         addSanctionNotice(data);
         showToast(data.text || '제재 안내가 우편함에 도착했습니다.');
