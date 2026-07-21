@@ -355,9 +355,7 @@ function renderReports() {
     byId('reportBody').innerHTML = '<tr><td colspan="6" class="muted">표시할 신고가 없습니다.</td></tr>';
   }
 
-  const start = rows.length ? (reportPage - 1) * REPORTS_PER_PAGE + 1 : 0;
-  const end = Math.min(reportPage * REPORTS_PER_PAGE, rows.length);
-  byId('reportPageInfo').textContent = `${start}-${end} / ${rows.length}건 · ${reportPage}/${totalPages}페이지`;
+  byId('reportPageInfo').textContent = `${reportPage} / ${totalPages}`;
   byId('reportPrevPage').disabled = reportPage === 1;
   byId('reportNextPage').disabled = reportPage === totalPages;
 }

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 const script = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+const css = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 const adminRouter = readFileSync(new URL('../_backend/routers/admin.py', import.meta.url), 'utf8');
 const gameRouter = readFileSync(new URL('../_backend/routers/game.py', import.meta.url), 'utf8');
 const gameReportScript = readFileSync(new URL('../game_client/js/report.js', import.meta.url), 'utf8');
@@ -53,6 +54,10 @@ test('dashboard paginates filtered report history in pages of twenty', () => {
   assert.match(script, /function resetReportPage\(\)/);
   assert.match(script, /reportPage = Math\.max\(1, reportPage - 1\);/);
   assert.match(script, /reportPage = Math\.min\(reportPageCount, reportPage \+ 1\);/);
+  assert.match(html, /id="reportPrevPage"[^>]*>&lt;<\/button>/);
+  assert.match(html, /id="reportNextPage"[^>]*>&gt;<\/button>/);
+  assert.match(script, /reportPageInfo'\)\.textContent = `\$\{reportPage\} \/ \$\{totalPages\}`;/);
+  assert.match(css, /\.report-pagination \{[^}]*justify-content:center/);
 });
 
 test('dashboard loads full history data from backend admin APIs', () => {
