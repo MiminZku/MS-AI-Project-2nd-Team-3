@@ -16,8 +16,11 @@ let recOn = false;
 
 let micStream = null;           // 최초 허용 후 세션 동안 재사용 (재시작마다 권한 재요청 방지)
 let micPermissionDenied = false;
-let mediaRecorder = null;
-let recordedChunks = [];
+let audioContext = null;
+let audioSourceNode = null;
+let audioProcessorNode = null;
+let recordedSamples = [];
+let recordingSampleRate = 48000;
 let lastRecordingBlob = null;   // 가장 최근 라운드 녹음 결과
 
 let micMuted = false;      // 입력(마이크) 음소거 — 실제 트랙을 꺼서 녹음에도 그대로 반영됨
@@ -129,9 +132,35 @@ function updateRecIndicator() {
   if (dot) dot.style.display = recOn ? 'block' : 'none';
 }
 
-function pickMimeType() {
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-  return candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
+function encodeWav(samples, sampleRate) {
+  const totalLength = samples.reduce((sum, sample) => sum + sample.length, 0);
+  const buffer = new ArrayBuffer(44 + totalLength * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset, value) => [...value].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + totalLength * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, totalLength * 2, true);
+
+  let offset = 44;
+  samples.forEach(sample => {
+    for (let i = 0; i < sample.length; i++) {
+      const value = Math.max(-1, Math.min(1, sample[i]));
+      view.setInt16(offset, value < 0 ? value * 0x8000 : value * 0x7fff, true);
+      offset += 2;
+    }
+  });
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 async function startRecording() {
@@ -176,6 +205,67 @@ function stopRecording() {
 
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
 
+  updateRecIndicator();
+}
+
+// MediaRecorder 대신 PCM 샘플을 WAV(16-bit mono)로 인코딩한다.
+async function startRecording() {
+  if (recOn) return;
+  if (!recordingConsented) {
+    showToast('음성/마이크 사용에 동의하지 않아 녹음되지 않습니다');
+    return;
+  }
+
+  const stream = await getRecordingSource();
+  if (!stream) {
+    showToast('마이크 권한이 없어 녹음되지 않습니다');
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    showToast('이 브라우저는 WAV 음성 녹음을 지원하지 않습니다.');
+    return;
+  }
+
+  audioContext = new AudioContextClass();
+  if (audioContext.state === 'suspended') await audioContext.resume();
+  recordingSampleRate = audioContext.sampleRate;
+  recordedSamples = [];
+  audioSourceNode = audioContext.createMediaStreamSource(stream);
+  audioProcessorNode = audioContext.createScriptProcessor(4096, 1, 1);
+  audioProcessorNode.onaudioprocess = (event) => {
+    if (!recOn) return;
+    recordedSamples.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+    event.outputBuffer.getChannelData(0).fill(0);
+  };
+  audioSourceNode.connect(audioProcessorNode);
+  audioProcessorNode.connect(audioContext.destination);
+  recOn = true;
+  updateRecIndicator();
+}
+
+function stopRecording() {
+  if (!recOn) return;
+  recOn = false;
+  audioProcessorNode?.disconnect();
+  audioSourceNode?.disconnect();
+  if (audioProcessorNode) audioProcessorNode.onaudioprocess = null;
+
+  const samples = recordedSamples;
+  const sampleRate = recordingSampleRate;
+  audioProcessorNode = null;
+  audioSourceNode = null;
+  recordedSamples = [];
+  const blob = samples.length ? encodeWav(samples, sampleRate) : null;
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
+  if (blob) {
+    lastRecordingBlob = blob;
+    uploadRecording(blob);
+  }
   updateRecIndicator();
 }
 
