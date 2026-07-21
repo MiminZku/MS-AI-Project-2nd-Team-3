@@ -16,8 +16,11 @@ let recOn = false;
 
 let micStream = null;           // 최초 허용 후 세션 동안 재사용 (재시작마다 권한 재요청 방지)
 let micPermissionDenied = false;
-let mediaRecorder = null;
-let recordedChunks = [];
+let audioContext = null;
+let audioSourceNode = null;
+let audioProcessorNode = null;
+let recordedSamples = [];
+let recordingSampleRate = 48000;
 let lastRecordingBlob = null;   // 가장 최근 라운드 녹음 결과
 
 let micMuted = false;      // 입력(마이크) 음소거 — 실제 트랙을 꺼서 녹음에도 그대로 반영됨
@@ -83,6 +86,9 @@ async function handleMicConsentChange(event) {
         sendWebRtcMessage({ type: 'webrtc_renegotiate' });
       }
     }
+  } else {
+    // 💡 아직 WebRTC 통화가 아예 시작되지 않았다면 지금 연결 시작
+    maybeStartWebRTC();
   }
 }
 
@@ -126,9 +132,35 @@ function updateRecIndicator() {
   if (dot) dot.style.display = recOn ? 'block' : 'none';
 }
 
-function pickMimeType() {
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-  return candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
+function encodeWav(samples, sampleRate) {
+  const totalLength = samples.reduce((sum, sample) => sum + sample.length, 0);
+  const buffer = new ArrayBuffer(44 + totalLength * 2);
+  const view = new DataView(buffer);
+  const writeString = (offset, value) => [...value].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + totalLength * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, totalLength * 2, true);
+
+  let offset = 44;
+  samples.forEach(sample => {
+    for (let i = 0; i < sample.length; i++) {
+      const value = Math.max(-1, Math.min(1, sample[i]));
+      view.setInt16(offset, value < 0 ? value * 0x8000 : value * 0x7fff, true);
+      offset += 2;
+    }
+  });
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
 async function startRecording() {
@@ -160,7 +192,7 @@ async function startRecording() {
   mediaRecorder.onstop = () => {
     lastRecordingBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
     recordedChunks = [];
-    uploadRecording(lastRecordingBlob);
+    // 라운드 종료 시 자동 전원 업로드는 하지 않고, 신고 요청 수신 시 온디맨드로 업로드합니다.
   };
   mediaRecorder.start();
 
@@ -176,16 +208,112 @@ function stopRecording() {
   updateRecIndicator();
 }
 
+// MediaRecorder 대신 PCM 샘플을 WAV(16-bit mono)로 인코딩한다.
+async function startRecording() {
+  if (recOn) return;
+  if (!recordingConsented) {
+    showToast('음성/마이크 사용에 동의하지 않아 녹음되지 않습니다');
+    return;
+  }
+
+  const stream = await getRecordingSource();
+  if (!stream) {
+    showToast('마이크 권한이 없어 녹음되지 않습니다');
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    showToast('이 브라우저는 WAV 음성 녹음을 지원하지 않습니다.');
+    return;
+  }
+
+  audioContext = new AudioContextClass();
+  if (audioContext.state === 'suspended') await audioContext.resume();
+  recordingSampleRate = audioContext.sampleRate;
+  recordedSamples = [];
+  audioSourceNode = audioContext.createMediaStreamSource(stream);
+  audioProcessorNode = audioContext.createScriptProcessor(4096, 1, 1);
+  audioProcessorNode.onaudioprocess = (event) => {
+    if (!recOn) return;
+    recordedSamples.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+    event.outputBuffer.getChannelData(0).fill(0);
+  };
+  audioSourceNode.connect(audioProcessorNode);
+  audioProcessorNode.connect(audioContext.destination);
+  recOn = true;
+  updateRecIndicator();
+}
+
+function stopRecording() {
+  if (!recOn) return;
+  recOn = false;
+  audioProcessorNode?.disconnect();
+  audioSourceNode?.disconnect();
+  if (audioProcessorNode) audioProcessorNode.onaudioprocess = null;
+
+  const samples = recordedSamples;
+  const sampleRate = recordingSampleRate;
+  audioProcessorNode = null;
+  audioSourceNode = null;
+  recordedSamples = [];
+  const blob = samples.length ? encodeWav(samples, sampleRate) : null;
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
+  if (blob) {
+    lastRecordingBlob = blob;
+    uploadRecording(blob);
+  }
+  updateRecIndicator();
+}
+
+function stopMicCapture() {
+  if (micStream) {
+    micStream.getTracks().forEach(track => track.stop());
+    micStream = null;
+  }
+  micMuted = false;
+  updateMicMuteUI();
+}
+
 /* ═══════════════════════════════════════════════════════
-   라운드 종료 시 서버에 내 녹음 업로드
-   (신고 시 상대방의 최신 녹음을 조회하는 방식이라, 각자 자기 녹음을 올려둬야 함)
+   음성 신고 요청 시 내 녹음 데이터 온디맨드 업로드
 ═══════════════════════════════════════════════════════ */
+async function uploadCurrentRecording() {
+  if (gameMode !== 'multi') return;
+
+  let blobToUpload = lastRecordingBlob;
+
+  // 현재 녹음이 진행 중이라면 데이터를 요청하여 직전까지의 Blob을 생성합니다.
+  if (recOn && mediaRecorder && mediaRecorder.state === 'recording') {
+    try {
+      mediaRecorder.requestData();
+      await new Promise(r => setTimeout(r, 100));
+      if (recordedChunks.length > 0) {
+        blobToUpload = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      }
+    } catch (err) {
+      console.warn('녹음 데이터 추출 실패:', err);
+    }
+  }
+
+  if (blobToUpload && blobToUpload.size > 0) {
+    uploadRecording(blobToUpload);
+  }
+}
+
+// 유저가 웹소켓을 끊고 이탈(Rage Quit)하는 경우를 대비한 안전장치 업로드
+window.addEventListener('beforeunload', () => {
+  uploadCurrentRecording();
+});
+
 function uploadRecording(blob) {
-  if (gameMode !== 'multi' || !blob || !blob.size) return; // AI 모드는 신고 대상이 없어 업로드 의미 없음
+  if (gameMode !== 'multi' || !blob || !blob.size) return;
   try {
     fetch(`${getHttpBase()}/upload-voice`, {
       method: 'POST',
-      // HTTP 헤더 값은 ISO-8859-1만 허용되어 한글 사용자명을 그대로 넣으면 fetch가 즉시 예외를 던짐
       headers: { 'X-User': encodeURIComponent(MY_NAME) },
       body: blob
     }).catch(err => console.warn('음성 업로드 실패:', err));
@@ -200,6 +328,7 @@ function uploadRecording(blob) {
 let peerConnection = null;
 let webRtcStarting = false;
 let webRtcCallStarted = false;
+let webRtcRestartPending = false;
 let remoteDescriptionSet = false;
 let pendingIceCandidates = [];
 
@@ -305,8 +434,13 @@ async function startCall() {
     const pc = await initWebRTC();
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    if (sendWebRtcMessage({ type: 'webrtc_offer', offer: pc.localDescription })) {
+    if (sendWebRtcMessage({
+      type: 'webrtc_offer',
+      offer: pc.localDescription,
+      restart: webRtcRestartPending
+    })) {
       webRtcCallStarted = true;
+      webRtcRestartPending = false;
     }
   } catch (err) {
     console.warn('WebRTC 통화 시작 실패:', err);
@@ -321,6 +455,7 @@ async function handleWebRtcMessage(data) {
 
   try {
     if (data.type === 'webrtc_offer') {
+      if (data.restart) closeWebRTC();
       const pc = await initWebRTC();
       await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
       remoteDescriptionSet = true;
