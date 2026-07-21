@@ -174,7 +174,7 @@ SECTION_MARKERS = {
 PRIORITY = ["폭력성발언", "패드립", "음란성발언", "욕설강도"]
 
 
-def search_rag_documents(query, top_n=8, strictness_level=1):
+def search_rag_documents(query, top_n=12, strictness_level=1):
     """rag_test.py 의 검색 로직과 동일 (비교 유효성을 위해 일부러 같게 유지)"""
     emb = ai_client.embeddings.create(model="text-embedding-3-small", input=query)
     vector_query = VectorizedQuery(
