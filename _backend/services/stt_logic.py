@@ -73,13 +73,17 @@ async def _transcribe_wav_sdk(filepath: str, speech_key: str, speech_region: str
 
             pcm_bytes, converted = convert_to_16k_mono_pcm(filepath)
 
+            push_stream = speechsdk.audio.PushAudioInputStream()
+            audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
+
             if converted and pcm_bytes:
-                push_stream = speechsdk.audio.PushAudioInputStream()
-                audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
                 push_stream.write(pcm_bytes)
                 push_stream.close()
             else:
-                audio_config = speechsdk.audio.AudioConfig(filename=filepath)
+                # 16k mono PCM 변환 실패 시 SDK PushStream을 쓰지 않고 바로 실패 리턴 (REST API로 Fallback 유도)
+                print("⚠️ [STT SDK] PCM 변환 실패. SDK 처리를 건너뛰고 REST API로 전환합니다.")
+                push_stream.close()
+                return ""
 
             recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
             results = []
@@ -88,6 +92,13 @@ async def _transcribe_wav_sdk(filepath: str, speech_key: str, speech_region: str
             def stop_cb(evt):
                 nonlocal done
                 done = True
+
+            def handle_canceled(evt):
+                nonlocal done
+                done = True
+                print(f"❌ [STT SDK Canceled] Reason: {evt.reason}")
+                if evt.reason == speechsdk.CancellationReason.Error:
+                    print(f"❌ [STT SDK Error Details] Code: {evt.error_code}, Details: {evt.error_details}")
 
             def handle_result(evt):
                 if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
@@ -106,7 +117,7 @@ async def _transcribe_wav_sdk(filepath: str, speech_key: str, speech_region: str
 
             recognizer.recognized.connect(handle_result)
             recognizer.session_stopped.connect(stop_cb)
-            recognizer.canceled.connect(stop_cb)
+            recognizer.canceled.connect(handle_canceled)
 
             recognizer.start_continuous_recognition()
             import time
@@ -114,11 +125,12 @@ async def _transcribe_wav_sdk(filepath: str, speech_key: str, speech_region: str
             while not done:
                 time.sleep(0.1)
                 if time.time() - start_time > 30:
+                    print("❌ [STT SDK Timeout] 30초 인식 시간 초과")
                     break
             recognizer.stop_continuous_recognition()
             return " ".join(results).strip()
         except Exception as e:
-            print(f"STT SDK Exception: {e}")
+            print(f"❌ [STT SDK Exception] {e}")
             return ""
 
     loop = asyncio.get_running_loop()
@@ -131,10 +143,11 @@ async def _transcribe_webm_rest(filepath: str, speech_key: str, speech_region: s
         with open(filepath, "rb") as f:
             audio_data = f.read()
     except Exception as e:
-        print(f"STT File Read Error: {e}")
+        print(f"❌ [STT File Read Error] {e}")
         return ""
 
     if not audio_data:
+        print("❌ [STT Error] 업로드된 오디오 데이터가 0 bytes 입니다.")
         return ""
 
     async with httpx.AsyncClient(timeout=15.0) as client:
@@ -156,10 +169,12 @@ async def _transcribe_webm_rest(filepath: str, speech_key: str, speech_region: s
                     res_json = response.json()
                     text = res_json.get("DisplayText", "").strip()
                     if text:
-                        print(f"STT REST API Success (Content-Type: {ctype}) -> {text}")
+                        print(f"✅ [STT REST API Success] Content-Type: {ctype} -> {text}")
                         return text
+                else:
+                    print(f"⚠️ [STT REST API Try Failed] Content-Type: {ctype}, Status: {response.status_code}, Body: {response.text}")
             except Exception as e:
-                print(f"STT REST API try error ({ctype}): {e}")
+                print(f"⚠️ [STT REST API Exception] Content-Type: {ctype}, Error: {e}")
                 continue
 
     return ""
@@ -172,16 +187,19 @@ async def transcribe_audio(filepath: str) -> str:
     speech_region = os.environ.get("AZURE_SPEECH_REGION")
     
     if not speech_key or not speech_region:
-        print("STT: Azure Speech keys missing in .env")
+        print("❌ [STT Config Error] .env 파일에 AZURE_SPEECH_KEY 또는 AZURE_SPEECH_REGION 이 없습니다.")
         return ""
 
     if not os.path.exists(filepath):
-        print(f"STT: File not found - {filepath}")
+        print(f"❌ [STT File Error] 오디오 파일이 존재하지 않습니다: {filepath}")
         return ""
 
-    # 1. WAV(RIFF) 파일이면 SDK PushStream 변환
+    # 1. WAV(RIFF) 파일이면 SDK PushStream 변환 시도
     if is_wav_file(filepath):
-        return await _transcribe_wav_sdk(filepath, speech_key, speech_region)
+        text = await _transcribe_wav_sdk(filepath, speech_key, speech_region)
+        if text:
+            return text
+        print("⚠️ [STT] SDK 변환 실패 또는 결과 없음. REST API로 Fallback 시도합니다.")
 
-    # 2. WebM / OGG 등 다른 포맷이면 REST API 변환
+    # 2. WebM / OGG 등 다른 포맷이거나 SDK 실패 시 REST API 변환 시도
     return await _transcribe_webm_rest(filepath, speech_key, speech_region)
