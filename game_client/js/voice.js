@@ -176,6 +176,15 @@ function stopRecording() {
   updateRecIndicator();
 }
 
+function stopMicCapture() {
+  if (micStream) {
+    micStream.getTracks().forEach(track => track.stop());
+    micStream = null;
+  }
+  micMuted = false;
+  updateMicMuteUI();
+}
+
 /* ═══════════════════════════════════════════════════════
    라운드 종료 시 서버에 내 녹음 업로드
    (신고 시 상대방의 최신 녹음을 조회하는 방식이라, 각자 자기 녹음을 올려둬야 함)
@@ -200,6 +209,7 @@ function uploadRecording(blob) {
 let peerConnection = null;
 let webRtcStarting = false;
 let webRtcCallStarted = false;
+let webRtcRestartPending = false;
 let remoteDescriptionSet = false;
 let pendingIceCandidates = [];
 
@@ -305,8 +315,13 @@ async function startCall() {
     const pc = await initWebRTC();
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    if (sendWebRtcMessage({ type: 'webrtc_offer', offer: pc.localDescription })) {
+    if (sendWebRtcMessage({
+      type: 'webrtc_offer',
+      offer: pc.localDescription,
+      restart: webRtcRestartPending
+    })) {
       webRtcCallStarted = true;
+      webRtcRestartPending = false;
     }
   } catch (err) {
     console.warn('WebRTC 통화 시작 실패:', err);
@@ -321,6 +336,7 @@ async function handleWebRtcMessage(data) {
 
   try {
     if (data.type === 'webrtc_offer') {
+      if (data.restart) closeWebRTC();
       const pc = await initWebRTC();
       await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
       remoteDescriptionSet = true;
