@@ -144,9 +144,9 @@ audio.mailbox-evidence { width:100%; height:30px; }
 @keyframes scoreFloat { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-52px) scale(1.2)} }
 
 /* Attack notification — HUD 바로 아래 중앙 고정, 사과 영역 밖 */
-.attack-notif { position:fixed; left:50%; transform:translateX(-50%); z-index:200; font-size:12px; font-weight:700; font-family:var(--mono); padding:5px 14px; border-radius:16px; pointer-events:none; white-space:nowrap; }
-.attack-notif.send { top:100px; background:rgba(108,99,255,.92); color:#fff; border:1px solid var(--accent); animation:notifUp 1.8s ease forwards; }
-.attack-notif.recv { top:132px; background:rgba(255,77,109,.92); color:#fff; border:1px solid var(--danger); animation:notifUp 1.8s ease forwards; }
+.attack-notif { position:fixed; left:50%; transform:translateX(-50%); z-index:200; font-size:12px; font-weight:700; font-family:var(--mono); padding:5px 14px; border-radius:16px; pointer-events:none; white-space:nowrap; contain:layout paint; will-change:transform,opacity; }
+.attack-notif.send { top:100px; background:rgba(108,99,255,.92); color:#fff; border:1px solid var(--accent); animation:notifUp .9s ease forwards; }
+.attack-notif.recv { top:132px; background:rgba(255,77,109,.92); color:#fff; border:1px solid var(--danger); animation:notifUp .9s ease forwards; }
 @keyframes notifUp { 0%{opacity:0;transform:translateY(10px)} 15%{opacity:1;transform:translateY(0)} 80%{opacity:1} 100%{opacity:0;transform:translateY(-16px)} }
 @keyframes notifShake { 0%{opacity:0;transform:translateX(0)} 10%{opacity:1} 20%{transform:translateX(-6px)} 30%{transform:translateX(6px)} 40%{transform:translateX(-4px)} 50%{transform:translateX(4px)} 60%{transform:translateX(0)} 80%{opacity:1} 100%{opacity:0} }
 

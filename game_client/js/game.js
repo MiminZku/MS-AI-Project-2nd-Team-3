@@ -131,6 +131,8 @@ function endGame() {
   $id('goP2Score').textContent = s2.toLocaleString();
   $id('goP2Score').className = 'go-sv' + (winner === 2 ? ' winner' : '');
   $id('goP2Name').textContent = p2Name;
+  const voiceReportButton = $id('goVoiceReportBtn');
+  if (voiceReportButton) voiceReportButton.style.display = p2AI ? 'none' : '';
   goOverlay.classList.add('show');
 }
 
@@ -342,7 +344,7 @@ function executeRemove(pid, indices) {
     setTimeout(() => {
       addStone(opp);
       showAttackNotif(pid, opp, count);
-    }, 200);
+    }, 80);
   }
 }
 
@@ -383,15 +385,9 @@ function showScorePop(text, areaEl, x, y) {
 }
 
 function showAttackNotif(attackPid, defendPid, count) {
-  const a = document.createElement('div');
-  a.className = 'attack-notif send';
-  a.textContent = `🚀 ${count}개 제거 → 돌 투척!`;
-  document.body.appendChild(a);
-  a.addEventListener('animationend', () => a.remove(), {once:true});
-
-  const d = document.createElement('div');
-  d.className = 'attack-notif recv';
-  d.textContent = `🪨 돌 사과 공격 받음!`;
-  document.body.appendChild(d);
-  d.addEventListener('animationend', () => d.remove(), {once:true});
+  const notification = document.createElement('div');
+  notification.className = 'attack-notif send';
+  notification.textContent = `🚀 ${count}개 제거 → 상대 보드에 돌 투척!`;
+  document.body.appendChild(notification);
+  notification.addEventListener('animationend', () => notification.remove(), {once:true});
 }

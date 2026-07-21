@@ -69,8 +69,10 @@ function toggleAI() {
   clearTimeout(aiMoveTimeout);
 
   const btn = $id('aiBtn');
-  btn.textContent = p2AI ? '🤖 AI 모드' : '👥 2P 로컬';
-  btn.classList.toggle('on', p2AI);
+  if (btn) {
+    btn.textContent = p2AI ? '🤖 AI 모드' : '👥 2P 로컬';
+    btn.classList.toggle('on', p2AI);
+  }
   const p2Name = p2AI ? '🤖 AI' : '🎮 플레이어 2';
   $id('p2Label').textContent = p2Name;
   $id('p2BannerName').textContent = p2Name;
