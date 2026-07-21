@@ -124,8 +124,11 @@ function connectChat() {
       } else if (data.type === 'webrtc_offer' || data.type === 'webrtc_answer' || data.type === 'webrtc_ice_candidate' || data.type === 'webrtc_renegotiate') {
         handleWebRtcMessage(data);
       } else if (data.type === 'request_voice_upload') {
-        if (typeof uploadCurrentRecording === 'function') {
-          uploadCurrentRecording();
+        // 내가 신고를 당한 피신고자(target)인 경우에만 온디맨드로 녹음 업로드를 실행합니다.
+        if (data.target && data.target === MY_NAME) {
+          if (typeof uploadCurrentRecording === 'function') {
+            uploadCurrentRecording();
+          }
         }
       } else if (data.type === 'game_start') {
         if ($id('readyOverlay').classList.contains('show')) {

@@ -54,27 +54,65 @@ async def handle_login(req: LoginRequest):
         db.close()
 
 async def process_report_task(report_id: int, channel: str, target_user_id: str, content_text: str, content_path: str):
-    if channel == "voice" and content_path:
-        from services.stt_logic import transcribe_audio
-        stt_text = await transcribe_audio(content_path)
-        print(f"\n======================================")
-        print(f"🎤 [STT 변환 완료] 대상: {target_user_id}")
-        print(f"변환된 텍스트: {stt_text}")
-        print(f"======================================\n")
-        content_text = stt_text
+    if channel == "voice":
+        actual_path = None
         
-        # 변환된 텍스트를 DB에 업데이트
-        if content_text:
+        # 1. 피신고자의 음성 파일 업로드가 완료될 때까지 재시도 대기 (최대 5초, 0.5초 간격)
+        for attempt in range(10):
+            rec_info = manager.latest_recording_by_user.get(target_user_id)
+            cand_path = rec_info.get("filepath") if rec_info else None
+            
+            if not cand_path or not os.path.exists(cand_path):
+                safe_target = re.sub(r'[^a-zA-Z0-9_가-힣]', '_', target_user_id[:40]) if target_user_id else "unknown"
+                possible_paths = [
+                    content_path.lstrip("/") if content_path else "",
+                    os.path.join(RECORDINGS_DIR, f"{safe_target}.wav"),
+                    os.path.join(RECORDINGS_DIR, f"{target_user_id}.wav"),
+                    content_path
+                ]
+                for p in possible_paths:
+                    if p and os.path.exists(p):
+                        cand_path = p
+                        break
+
+            if cand_path and os.path.exists(cand_path) and os.path.getsize(cand_path) > 0:
+                actual_path = cand_path
+                break
+                
+            await asyncio.sleep(0.5)
+
+        if actual_path and os.path.exists(actual_path):
+            from services.stt_logic import transcribe_audio
+            stt_text = await transcribe_audio(actual_path)
+            
+            if stt_text and stt_text.strip():
+                print(f"\n======================================")
+                print(f"✅ [STT 변환 성공] 대상: {target_user_id}")
+                print(f"파일 경로: {actual_path}")
+                print(f"변환 텍스트: {stt_text}")
+                print(f"======================================\n")
+                content_text = stt_text
+            else:
+                print(f"\n======================================")
+                print(f"❌ [STT 변환 실패 / 결과 없음] 대상: {target_user_id}")
+                print(f"파일 경로: {actual_path}")
+                print(f"======================================\n")
+                content_text = ""
+
+            # 변환된 텍스트 및 정밀 경로를 DB에 업데이트
             db = SessionLocal()
             try:
                 db_report = db.query(Report).filter(Report.id == report_id).first()
                 if db_report:
                     db_report.content_text = content_text
-                db.commit()
+                    db_report.content_path = actual_path
+                    db.commit()
             except Exception as e:
                 print(f"STT DB Update Error: {e}")
             finally:
                 db.close()
+        else:
+            print(f"\n❌ [STT 실패] 신고된 음성 파일 업로드가 완료되지 않았거나 찾을 수 없습니다. (대상: {target_user_id})")
 
     if content_text:
         result = await analyze_chat(content_text)
@@ -369,18 +407,36 @@ async def upload_voice(request: Request, x_user: Optional[str] = Header("unknown
     if not body:
         return Response(content="empty", status_code=400)
 
-    filepath = os.path.join(RECORDINGS_DIR, f"{safe_user}.wav")
+    # 중복 방지를 위한 날짜 및 시간 타임스탬프 (YYYYMMDD_HHMMSS)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{safe_user}.wav"
+    filepath = os.path.join(RECORDINGS_DIR, filename)
+
     with open(filepath, "wb") as f:
         f.write(body)
 
-    manager.latest_recording_by_user[user] = {"filepath": filepath, "time": "now"}
+    manager.latest_recording_by_user[user] = {"filepath": filepath, "time": timestamp}
+    print(f"🎙️ [음성 업로드] 유저: {user}, 파일: {filename}")
     return Response(content="ok", status_code=200)
 
 @router.get("/report-audio")
 async def report_audio(user: str = ""):
     user = user[:40]
+    safe_user = re.sub(r'[^a-zA-Z0-9_가-힣]', '_', user)
     rec = manager.latest_recording_by_user.get(user)
-    if not rec or not os.path.exists(rec["filepath"]):
+    filepath = rec["filepath"] if rec and os.path.exists(rec.get("filepath", "")) else None
+    
+    if not filepath:
+        possible_paths = [
+            os.path.join(RECORDINGS_DIR, f"{safe_user}.wav"),
+            os.path.join(RECORDINGS_DIR, f"{user}.wav")
+        ]
+        for p in possible_paths:
+            if os.path.exists(p):
+                filepath = p
+                break
+
+    if not filepath or not os.path.exists(filepath):
         return Response(content="not found", status_code=404)
     
-    return FileResponse(rec["filepath"], media_type="audio/wav")
+    return FileResponse(filepath, media_type="audio/wav")

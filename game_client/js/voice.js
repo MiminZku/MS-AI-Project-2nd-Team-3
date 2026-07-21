@@ -264,7 +264,8 @@ function stopRecording() {
   }
   if (blob) {
     lastRecordingBlob = blob;
-    uploadRecording(blob);
+    // 💡 PROJECT.md 신고 기반 원칙: 라운드 종료 시 무조건 자동 업로드하지 않고,
+    // 유저가 음성 신고를 제출하여 request_voice_upload를 수신받은 대상만 온디맨드로 업로드합니다.
   }
   updateRecIndicator();
 }
@@ -286,16 +287,13 @@ async function uploadCurrentRecording() {
 
   let blobToUpload = lastRecordingBlob;
 
-  // 현재 녹음이 진행 중이라면 데이터를 요청하여 직전까지의 Blob을 생성합니다.
-  if (recOn && mediaRecorder && mediaRecorder.state === 'recording') {
+  // 현재 녹음 중이라면 녹음을 마무리하여 최신 WAV(16-bit PCM) Blob을 즉시 생성합니다.
+  if (recOn) {
     try {
-      mediaRecorder.requestData();
-      await new Promise(r => setTimeout(r, 100));
-      if (recordedChunks.length > 0) {
-        blobToUpload = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-      }
+      stopRecording();
+      blobToUpload = lastRecordingBlob;
     } catch (err) {
-      console.warn('녹음 데이터 추출 실패:', err);
+      console.warn('녹음 마무리 및 WAV 데이터 생성 실패:', err);
     }
   }
 
@@ -304,10 +302,8 @@ async function uploadCurrentRecording() {
   }
 }
 
-// 유저가 웹소켓을 끊고 이탈(Rage Quit)하는 경우를 대비한 안전장치 업로드
-window.addEventListener('beforeunload', () => {
-  uploadCurrentRecording();
-});
+// 💡 PROJECT.md 원칙 준수: 신고 발생 시에만 피신고자 온디맨드 업로드를 수행하므로
+// 페이지 종료 시(beforeunload) 전량 자동 업로드 로직은 제거합니다.
 
 function uploadRecording(blob) {
   if (gameMode !== 'multi' || !blob || !blob.size) return;
