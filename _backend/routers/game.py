@@ -409,9 +409,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         await other_ws.send_json(data)
 
     except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+    finally:
         manager.disconnect(websocket)
-        await manager.broadcast_presence()
-        await manager.broadcast_opponent_info()
+        # manager.disconnect 에는 async 함수를 직접 호출하지 않지만, 브로드캐스트는 async입니다.
+        try:
+            await manager.broadcast_presence()
+            await manager.broadcast_opponent_info()
+        except Exception:
+            pass
 
 @router.post("/upload-voice")
 async def upload_voice(request: Request, x_user: Optional[str] = Header("unknown")):
