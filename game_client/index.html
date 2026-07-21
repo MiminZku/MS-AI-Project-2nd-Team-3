@@ -13,7 +13,6 @@
 <header>
   <div class="logo">APPLE<span>STORY</span></div>
   <div class="header-center">
-    <button id="aiBtn" class="ai-btn on" onclick="toggleAI()">🤖 AI 모드</button>
     <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">합이 10 = 사과 제거 | 4개↑ 동시 제거 = 상대 돌 사과!</span>
   </div>
   <div class="player-chip">
@@ -21,7 +20,7 @@
     <span class="pname" id="playerName">닉네임 미설정</span>
     <span class="plevel">Lv.42</span>
     <button class="mailbox-btn" id="micMuteBtn" onclick="toggleMicMute()" title="마이크 켜짐 (클릭하여 끄기)">
-      🎤
+      <span id="micIcon">🎤</span>
       <span class="rec-corner-dot" id="recDotBadge" style="display:none"></span>
     </button>
     <button class="mailbox-btn" id="mailboxBtn" onclick="event.stopPropagation(); toggleMailbox()" title="신고 내역">
@@ -131,7 +130,7 @@
       <div class="go-player">
         <div class="go-player-name">
           <span id="goP2Name">🤖 AI</span>
-          <button class="go-voice-report-btn" onclick="openReport('voice')" title="이번 게임 음성 신고">⚑ 신고</button>
+          <button class="go-voice-report-btn" id="goVoiceReportBtn" onclick="openReport('voice')" title="이번 게임 음성 신고">⚑ 신고</button>
         </div>
         <div class="go-sv" id="goP2Score">0</div>
       </div>
