@@ -118,6 +118,25 @@ test('dashboard posts moderation decisions to backend admin APIs', () => {
   assert.match(script, /reviewer_id/);
 });
 
+test('appeals use the report result button UI with release and reject actions only', () => {
+  assert.match(html, /<th>처리 결과<\/th>/);
+  assert.match(script, /onclick="openAppealReviewSheet\(\$\{appeal\.id\}\)"/);
+  assert.match(script, /function openAppealReviewSheet\(appealId\)/);
+  assert.match(script, /window\.openAppealReviewSheet = openAppealReviewSheet;/);
+  assert.match(script, /const APPEAL_ACTION_OPTIONS = '<option value="RELEASE">신고 취소<\/option><option value="REJECT">기각<\/option>'/);
+  assert.match(script, /\/api\/admin\/sanction-command/);
+  assert.match(script, /action: 'release'/);
+  assert.match(script, /\/api\/admin\/appeals\/\$\{appeal\.id\}\/reject/);
+});
+
+test('appeal result button labels completed actions as report cancellation or rejection', () => {
+  assert.match(script, /function appealResult\(appeal\)/);
+  assert.match(script, /appeal\.status === 'PENDING'.*'대기'/s);
+  assert.match(script, /appeal\.status === 'APPROVED'.*'신고 취소'/s);
+  assert.match(script, /appeal\.status === 'REJECTED'.*'기각'/s);
+  assert.match(script, /\$\{appealResult\(appeal\)\}/);
+});
+
 test('dashboard exposes openReviewSheet for inline table buttons', () => {
   assert.match(script, /window\.openReviewSheet = openReviewSheet;/);
   assert.match(script, /onclick="openReviewSheet\(\$\{report\.id\}\)"/);
