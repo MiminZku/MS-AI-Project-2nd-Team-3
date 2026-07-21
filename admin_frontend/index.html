@@ -92,7 +92,7 @@
           <input id="appealSearch" type="text" placeholder="신청자 ID 검색" />
         </div>
         <table>
-          <thead><tr><th>신청번호</th><th>신고번호</th><th>신청자 ID</th><th>사유</th><th>상태</th></tr></thead>
+          <thead><tr><th>신청번호</th><th>신고번호</th><th>신청자 ID</th><th>사유</th><th>처리 결과</th></tr></thead>
           <tbody id="appealBody"></tbody>
         </table>
       </div>
@@ -150,14 +150,14 @@
         <div id="sheetAudioStatus" class="audio-status"></div>
       </div>
       <div class="field-row">
-        <div class="field-label">제재 유형</div>
+        <div class="field-label" id="sheetSanctionLabel">제재 유형</div>
         <select id="sheetSanctionType">
           <option value="MUTE">채팅 금지</option>
           <option value="BAN">계정 정지</option>
           <option value="DISMISS">신고 취소</option>
         </select>
       </div>
-      <div class="field-row">
+      <div class="field-row" id="sheetDurationRow">
         <div class="field-label">제재 기간</div>
         <input id="sheetDurationDays" type="number" min="1" value="7" />
       </div>

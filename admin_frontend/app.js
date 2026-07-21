@@ -2,6 +2,7 @@ let reports = [];
 let sanctions = [];
 let appeals = [];
 let activeReportId = null;
+let activeAppealId = null;
 let activeSanctionType = 'MUTE';
 let dashboardLoaded = false;
 let adminStream = null;
@@ -12,6 +13,8 @@ let reportPageCount = 1;
 
 const QUEUE_STATUSES = ['PENDING', 'MANUAL_REVIEW_REQUIRED', 'PENDING_HITL'];
 const REPORTS_PER_PAGE = 20;
+const REPORT_ACTION_OPTIONS = '<option value="MUTE">채팅 금지</option><option value="BAN">계정 정지</option><option value="DISMISS">신고 취소</option>';
+const APPEAL_ACTION_OPTIONS = '<option value="RELEASE">신고 취소</option><option value="REJECT">기각</option>';
 
 function byId(id) {
   return document.getElementById(id);
@@ -34,6 +37,13 @@ function statusLabel(status) {
 
 function reportResult(report) {
   return statusLabel(report.status);
+}
+
+function appealResult(appeal) {
+  if (appeal.status === 'PENDING') return '대기';
+  if (appeal.status === 'APPROVED') return '신고 취소';
+  if (appeal.status === 'REJECTED') return '기각';
+  return statusLabel(appeal.status);
 }
 
 const isPendingReport = (report) => QUEUE_STATUSES.includes(report.status);
@@ -395,7 +405,7 @@ function renderAppeals() {
       <td>#${appeal.report_id}</td>
       <td>${appeal.user_id || '-'}</td>
       <td>${appeal.reason || '-'}</td>
-      <td><span class="badge ${badgeClass(appeal.status)}">${statusLabel(appeal.status)}</span></td>
+      <td><button class="status-btn badge ${badgeClass(appeal.status)}" type="button" onclick="openAppealReviewSheet(${appeal.id})">${appealResult(appeal)}</button></td>
     </tr>`
   )).join('');
 
@@ -415,13 +425,18 @@ function updateSummary() {
 function setSanctionPills(type) {
   activeSanctionType = type;
   byId('sheetSanctionType').value = type;
+  if (activeAppealId !== null) return;
   byId('sheetDurationDays').value = type === 'BAN' ? 30 : 7;
 }
 
 function openReviewSheet(reportId) {
   activeReportId = reportId;
+  activeAppealId = null;
   const report = reports.find((item) => item.id === reportId);
   if (!report) return;
+  byId('sheetSanctionLabel').textContent = '제재 유형';
+  byId('sheetSanctionType').innerHTML = REPORT_ACTION_OPTIONS;
+  byId('sheetDurationRow').style.display = 'flex';
   byId('sheetHead').textContent = `신고 접수 #${report.id}`;
   byId('sheetSub').textContent = `${report.reporter_id} → ${report.reported_id}`;
   byId('sheetReportTime').textContent = formatDateTime(report.created_at);
@@ -448,6 +463,31 @@ function openReviewSheet(reportId) {
   byId('sheetOverlay').style.display = 'flex';
 }
 
+function openAppealReviewSheet(appealId) {
+  const appeal = appeals.find((item) => Number(item.id) === Number(appealId));
+  if (!appeal) return;
+
+  activeAppealId = Number(appeal.id);
+  activeReportId = Number(appeal.report_id);
+  activeSanctionType = 'RELEASE';
+  byId('sheetHead').textContent = `이의신청 검토 #${appeal.id}`;
+  byId('sheetSub').textContent = `신고 #${appeal.report_id} · 신청자 ${appeal.user_id || '-'}`;
+  byId('sheetReportTime').textContent = formatDateTime(appeal.created_at);
+  byId('sheetUsers').textContent = appeal.user_id || '-';
+  byId('sheetContent').textContent = appeal.reason || '(이의신청 사유 없음)';
+  byId('sheetAudio').onerror = null;
+  byId('sheetAudio').pause();
+  byId('sheetAudio').removeAttribute('src');
+  byId('sheetAudio').load();
+  byId('sheetAudioRow').style.display = 'none';
+  byId('sheetSanctionLabel').textContent = '제재 유형';
+  byId('sheetSanctionType').innerHTML = APPEAL_ACTION_OPTIONS;
+  byId('sheetSanctionType').value = activeSanctionType;
+  byId('sheetDurationRow').style.display = 'none';
+  byId('sheetReason').value = '';
+  byId('sheetOverlay').style.display = 'flex';
+}
+
 function closeReviewSheet() {
   byId('sheetAudio').onerror = null;
   byId('sheetAudioStatus').textContent = '';
@@ -456,6 +496,7 @@ function closeReviewSheet() {
   byId('sheetAudio').load();
   byId('sheetOverlay').style.display = 'none';
   activeReportId = null;
+  activeAppealId = null;
 }
 
 function sanctionTypeForBackend(type, durationDays) {
@@ -465,9 +506,34 @@ function sanctionTypeForBackend(type, durationDays) {
 }
 
 async function applyDecision() {
+  const reason = byId('sheetReason').value.trim() || '관리자 대시보드 수동 처리';
+  if (activeAppealId !== null) {
+    const appeal = appeals.find((item) => Number(item.id) === activeAppealId);
+    if (!appeal) return;
+    try {
+      if (activeSanctionType === 'RELEASE') {
+        await requestJson('/api/admin/sanction-command', {
+          method: 'POST',
+          body: JSON.stringify({ report_id: appeal.report_id, action: 'release', reviewer_id: 'admin' })
+        });
+        showToast('신고를 취소했습니다.');
+      } else {
+        await requestJson(`/api/admin/appeals/${appeal.id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ reason, reviewer_id: 'admin' })
+        });
+        showToast('이의신청을 기각했습니다.');
+      }
+      closeReviewSheet();
+      await refreshDashboard();
+    } catch (error) {
+      showToast(`처리에 실패했습니다: ${error.message}`);
+    }
+    return;
+  }
+
   const report = reports.find((item) => item.id === activeReportId);
   if (!report) return;
-  const reason = byId('sheetReason').value.trim() || '관리자 대시보드 수동 처리';
   const durationDays = Number(byId('sheetDurationDays').value) || 7;
 
   try {
@@ -544,6 +610,7 @@ function bindEvents() {
 }
 
 window.openReviewSheet = openReviewSheet;
+window.openAppealReviewSheet = openAppealReviewSheet;
 
 bindEvents();
 bindAdminStream();

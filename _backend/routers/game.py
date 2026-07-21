@@ -1,8 +1,8 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, Header, BackgroundTasks
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+import asyncio
 import os
 import urllib.parse
 import json
@@ -32,7 +32,7 @@ def build_mail_content(category, level, sanction_type, duration_days, violation_
         f"이의가 있으실 경우 고객센터를 통해 이의를 제기하실 수 있습니다."
     )
 
-RECORDINGS_DIR = "recordings"
+RECORDINGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "recordings"))
 os.makedirs(RECORDINGS_DIR, exist_ok=True)
 
 class ReportRequest(BaseModel):
@@ -74,29 +74,20 @@ async def handle_login(req: LoginRequest):
 async def process_report_task(report_id: int, channel: str, target_user_id: str, content_text: str, content_path: str):
     if channel == "voice":
         actual_path = None
-        
-        # 1. 피신고자의 음성 파일 업로드가 완료될 때까지 재시도 대기 (최대 5초, 0.5초 간격)
-        for attempt in range(10):
-            rec_info = manager.latest_recording_by_user.get(target_user_id)
-            cand_path = rec_info.get("filepath") if rec_info else None
-            
-            if not cand_path or not os.path.exists(cand_path):
-                safe_target = re.sub(r'[^a-zA-Z0-9_가-힣]', '_', target_user_id[:40]) if target_user_id else "unknown"
-                possible_paths = [
-                    content_path.lstrip("/") if content_path else "",
-                    os.path.join(RECORDINGS_DIR, f"{safe_target}.wav"),
-                    os.path.join(RECORDINGS_DIR, f"{target_user_id}.wav"),
-                    content_path
-                ]
-                for p in possible_paths:
-                    if p and os.path.exists(p):
-                        cand_path = p
-                        break
 
-            if cand_path and os.path.exists(cand_path) and os.path.getsize(cand_path) > 0:
-                actual_path = cand_path
+        # Wait for the file path attached to this exact report.
+        for attempt in range(10):
+            db = SessionLocal()
+            try:
+                db_report = db.query(Report).filter(Report.id == report_id).first()
+                candidate_path = db_report.content_path if db_report else ""
+            finally:
+                db.close()
+
+            if candidate_path and os.path.isfile(candidate_path) and os.path.getsize(candidate_path) > 0:
+                actual_path = candidate_path
                 break
-                
+
             await asyncio.sleep(0.5)
 
         if actual_path and os.path.exists(actual_path):
@@ -316,7 +307,7 @@ async def handle_report(req: ReportRequest, background_tasks: BackgroundTasks):
             reported_id=req.target_user_id,
             content_type=req.channel,
             content_text=req.content_text,
-            content_path=req.content_path
+            content_path="" if req.channel == "voice" else req.content_path,
         )
         db.add(new_report)
         db.commit()
@@ -422,7 +413,11 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
 
 @router.post("/upload-voice")
-async def upload_voice(request: Request, x_user: Optional[str] = Header("unknown")):
+async def upload_voice(
+    request: Request,
+    x_user: Optional[str] = Header("unknown"),
+    x_report_id: Optional[int] = Header(None),
+):
     try:
         user = urllib.parse.unquote(x_user)
     except Exception:
@@ -439,36 +434,36 @@ async def upload_voice(request: Request, x_user: Optional[str] = Header("unknown
     if not body:
         return Response(content="empty", status_code=400)
 
-    # 중복 방지를 위한 날짜 및 시간 타임스탬프 (YYYYMMDD_HHMMSS)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{safe_user}.wav"
-    filepath = os.path.join(RECORDINGS_DIR, filename)
+    if not x_report_id or x_report_id <= 0:
+        return Response(content="report ID required", status_code=400)
 
-    with open(filepath, "wb") as f:
-        f.write(body)
+    db = SessionLocal()
+    filepath = None
+    try:
+        db_report = db.query(Report).filter(Report.id == x_report_id).first()
+        if not db_report:
+            return Response(content="report not found", status_code=404)
+        if db_report.content_type != "voice":
+            return Response(content="report is not voice", status_code=400)
+        if db_report.reported_id != user:
+            return Response(content="report target mismatch", status_code=403)
 
-    manager.latest_recording_by_user[user] = {"filepath": filepath, "time": timestamp}
-    print(f"🎙️ [음성 업로드] 유저: {user}, 파일: {filename}")
-    return Response(content="ok", status_code=200)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"report_{x_report_id}_{timestamp}_{safe_user}.wav"
+        filepath = os.path.join(RECORDINGS_DIR, filename)
+        with open(filepath, "wb") as f:
+            f.write(body)
 
-@router.get("/report-audio")
-async def report_audio(user: str = ""):
-    user = user[:40]
-    safe_user = re.sub(r'[^a-zA-Z0-9_가-힣]', '_', user)
-    rec = manager.latest_recording_by_user.get(user)
-    filepath = rec["filepath"] if rec and os.path.exists(rec.get("filepath", "")) else None
-    
-    if not filepath:
-        possible_paths = [
-            os.path.join(RECORDINGS_DIR, f"{safe_user}.wav"),
-            os.path.join(RECORDINGS_DIR, f"{user}.wav")
-        ]
-        for p in possible_paths:
-            if os.path.exists(p):
-                filepath = p
-                break
+        db_report.content_path = filepath
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        if filepath and os.path.exists(filepath):
+            os.remove(filepath)
+        print(f"Voice upload error: {exc}")
+        return Response(content="upload failed", status_code=500)
+    finally:
+        db.close()
 
-    if not filepath or not os.path.exists(filepath):
-        return Response(content="not found", status_code=404)
-    
-    return FileResponse(filepath, media_type="audio/wav")
+    print(f"Voice evidence uploaded for report {x_report_id}: {filename}")
+    return {"status": "ok", "report_id": x_report_id}
