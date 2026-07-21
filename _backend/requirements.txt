@@ -7,3 +7,5 @@ python-multipart
 python-dotenv
 openai
 httpx
+azure-search-documents
+azure-core
