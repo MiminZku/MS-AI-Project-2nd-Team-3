@@ -73,8 +73,6 @@ function selectMode(mode) {
   if (mode === 'multi') {
     p2AI = false;
     $id('sidePanel').style.display = 'flex';
-    $id('aiBtn').textContent = '👥 2P 모드';
-    $id('aiBtn').classList.remove('on');
     currentOpponentName = null; // 이전 매치의 상대 정보가 남아있지 않도록 초기화
     updateOpponentDisplay();
     updateP2ScoreLabel();
@@ -84,8 +82,6 @@ function selectMode(mode) {
   } else {
     p2AI = true;
     $id('sidePanel').style.display = 'none';
-    $id('aiBtn').textContent = '🤖 AI 모드';
-    $id('aiBtn').classList.add('on');
     $id('p2Label').textContent = '🤖 AI';
     $id('p2BannerName').textContent = '🤖 AI';
     $id('p2BannerHint').textContent = '자동 플레이 중';
@@ -139,6 +135,13 @@ function showReadyScreen(mode) {
 function confirmGameStart(isRemote = false) {
   // '마이크 사용'을 체크한 경우에만 이번 라운드 녹음 진행 (스피커 출력은 녹음과 무관)
   recordingConsented = $id('consentMic').checked;
+  if (!recordingConsented) {
+    stopMicCapture();
+    micMuted = true;
+  } else {
+    micMuted = false;
+  }
+  updateMicMuteUI();
   $id('readyOverlay').classList.remove('show');
   // 재시작 시 이전 게임의 WebRTC 상태가 남아 있지 않도록 새 통화를 준비한다.
   webRtcRestartPending = true;
