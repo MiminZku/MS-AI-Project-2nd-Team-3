@@ -71,10 +71,6 @@
 
       <!-- P1 -->
       <div class="player-section p1-section">
-        <div class="player-banner">
-          <div class="banner-name"><span class="banner-badge p1-color"></span><span id="p1BannerName">플레이어 1</span> — 마우스로 드래그</div>
-          <div class="banner-hint">4개↑ 동시 제거 → 돌 투척 🪨</div>
-        </div>
         <div class="apple-area" id="p1Area">
           <canvas id="p1Canvas"></canvas>
           <div class="apple-grid" id="p1Grid"></div>
@@ -198,6 +194,30 @@
     </div>
     <div class="login-error" id="loginError" style="display:none">아이디를 입력해 주세요</div>
     <button class="go-btn" id="loginSubmitBtn" onclick="submitLogin()">로그인</button>
+    <button class="login-appeal-link" type="button" onclick="openAppealModal()">계정 정지 이의신청</button>
+  </div>
+</div>
+
+<div class="appeal-overlay" id="appealOverlay" onclick="closeAppealOnBackground(event)">
+  <div class="appeal-modal" role="dialog" aria-modal="true" aria-labelledby="appealTitle">
+    <div class="modal-head">
+      <div class="modal-icon">?</div>
+      <div class="modal-title" id="appealTitle">계정 정지 이의신청</div>
+    </div>
+    <p class="modal-sub">아이디와 이의신청 사유를 작성해 주세요.</p>
+    <div class="appeal-field">
+      <label for="appealUserId">아이디</label>
+      <input type="text" id="appealUserId" maxlength="50" placeholder="정지된 계정 아이디" autocomplete="username">
+    </div>
+    <div class="appeal-field">
+      <label for="appealReason">이의신청 사유</label>
+      <textarea id="appealReason" rows="6" maxlength="2000" placeholder="정지 조치에 대한 사유를 작성해 주세요."></textarea>
+    </div>
+    <div class="appeal-error" id="appealError" role="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" type="button" onclick="closeAppealModal()">취소</button>
+      <button class="btn btn-submit" type="button" id="appealSubmitBtn" onclick="submitAppeal()">전송</button>
+    </div>
   </div>
 </div>
 
