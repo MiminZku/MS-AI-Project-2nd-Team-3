@@ -1,4 +1,5 @@
 import os
+import re
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Literal
@@ -7,7 +8,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 import asyncio
 import json
@@ -149,6 +150,53 @@ def list_appeals():
     with get_db_cursor() as cur:
         cur.execute("SELECT * FROM appeals ORDER BY created_at DESC;")
         return cur.fetchall()
+
+RECORDINGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "recordings"))
+
+@router.get("/api/admin/reports/{report_id}/audio")
+def get_report_audio(report_id: int, download: int = 0):
+    with get_db_cursor() as cur:
+        cur.execute("SELECT * FROM reports WHERE id = %s;", (report_id,))
+        report = cur.fetchone()
+        if not report:
+            raise HTTPException(status_code=404, detail="신고 내역을 찾을 수 없습니다.")
+
+    filepath = None
+    
+    # 1. DB content_path 직접 확인
+    db_path = report.get("content_path")
+    if db_path and os.path.exists(db_path):
+        filepath = db_path
+
+    # 2. recordings 디렉토리에서 피신고자 ID 기반 탐색
+    if not filepath:
+        reported_id = report.get("reported_id", "")
+        safe_user = re.sub(r'[^a-zA-Z0-9_가-힣]', '_', reported_id) if reported_id else ""
+        possible_paths = []
+        if reported_id:
+            possible_paths.extend([
+                os.path.join(RECORDINGS_DIR, f"{reported_id}.wav"),
+                os.path.join(RECORDINGS_DIR, f"{safe_user}.wav"),
+            ])
+            if os.path.exists(RECORDINGS_DIR):
+                for f in os.listdir(RECORDINGS_DIR):
+                    if (f.startswith(reported_id) or f.startswith(safe_user)) and f.endswith(".wav"):
+                        possible_paths.append(os.path.join(RECORDINGS_DIR, f))
+
+        for p in possible_paths:
+            if os.path.exists(p):
+                filepath = p
+                break
+
+    if not filepath or not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="해당 신고 건의 음성 파일이 존재하지 않습니다.")
+
+    headers = {}
+    if download == 1:
+        headers["Content-Disposition"] = f'attachment; filename="voice-report-{report_id}.wav"'
+
+    return FileResponse(filepath, media_type="audio/wav", headers=headers)
+
 
 @router.post("/api/admin/reports/{report_id}/sanction")
 async def create_sanction(report_id: int, body: SanctionCreate):

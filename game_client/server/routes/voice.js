@@ -10,8 +10,8 @@ const { latestRecordingByUser } = require('../state');
 const MAX_NAME_LEN = 40;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 라운드 하나치 음성이라 20MB면 충분
 
-const RECORDINGS_DIR = path.join(__dirname, '..', '..', 'recordings');
-if (!fs.existsSync(RECORDINGS_DIR)) fs.mkdirSync(RECORDINGS_DIR);
+const RECORDINGS_DIR = path.join(__dirname, '..', '..', '_backend', 'recordings');
+if (!fs.existsSync(RECORDINGS_DIR)) fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
 
 // POST /upload-voice — 라운드 종료 시 자동 업로드됨 (body: 오디오 원본, 헤더: X-User)
 function uploadVoice(req, res) {
