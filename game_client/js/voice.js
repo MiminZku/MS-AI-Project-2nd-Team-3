@@ -293,8 +293,6 @@ function stopMicCapture() {
    음성 신고 요청 시 내 녹음 데이터 온디맨드 업로드
 ═══════════════════════════════════════════════════════ */
 async function uploadCurrentRecording(reportId) {
-  if (gameMode !== 'multi') return;
-
   let blobToUpload = lastRecordingBlob;
 
   // 현재 녹음 중이라면 녹음을 마무리하여 최신 WAV(16-bit PCM) Blob을 즉시 생성합니다.
@@ -316,7 +314,7 @@ async function uploadCurrentRecording(reportId) {
 // 페이지 종료 시(beforeunload) 전량 자동 업로드 로직은 제거합니다.
 
 async function uploadRecording(blob, reportId) {
-  if (gameMode !== 'multi' || !blob || !blob.size || !Number.isFinite(Number(reportId))) return null;
+  if (!blob || !blob.size || !Number.isFinite(Number(reportId))) return null;
   try {
     const response = await fetch(`${getHttpBase()}/upload-voice`, {
       method: 'POST',

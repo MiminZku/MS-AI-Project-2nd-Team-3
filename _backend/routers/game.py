@@ -91,6 +91,18 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
 
             await asyncio.sleep(0.5)
 
+        # 폴백: candidate_path가 없거나 파일이 존재하지 않는 경우 해당 report_id로 저장된 파일 탐색
+        if not actual_path:
+            possible_files = []
+            if os.path.exists(RECORDINGS_DIR):
+                for f in os.listdir(RECORDINGS_DIR):
+                    if f.endswith(".wav") and f.startswith(f"report_{report_id}_"):
+                        possible_files.append(os.path.join(RECORDINGS_DIR, f))
+            for p in possible_files:
+                if os.path.isfile(p) and os.path.getsize(p) > 0:
+                    actual_path = p
+                    break
+
         if actual_path and os.path.exists(actual_path):
             from services.stt_logic import transcribe_audio
             stt_text = await transcribe_audio(actual_path)
@@ -143,7 +155,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
 
         if final_level > 0:
             # 긴급 플래그가 있으면 confidence가 낮아도 자동 검토(HITL)로 미루지 않고 즉시 제재한다.
-            is_hitl = not urgent_flags and (final_level == -1 or result.get("confidence", 1.0) < 0.9 or result.get("needs_human_review", False))
+            is_hitl = not urgent_flags and (final_level == -1 or result.get("confidence", 1.0) < 0.8 or result.get("needs_human_review", False))
             if not is_hitl:
                 db = SessionLocal()
                 try:
@@ -290,7 +302,7 @@ async def process_report_task(report_id: int, channel: str, target_user_id: str,
             try:
                 db_report = db.query(Report).filter(Report.id == report_id).first()
                 if db_report:
-                    if final_level == -1 or result.get("confidence", 1.0) < 0.9 or result.get("needs_human_review", False):
+                    if final_level == -1 or result.get("confidence", 1.0) < 0.8 or result.get("needs_human_review", False):
                         db_report.status = "PENDING_HITL"
                         db.commit()
                         from routers.admin import notify_admins
@@ -474,6 +486,9 @@ async def upload_voice(
         filepath = os.path.join(RECORDINGS_DIR, filename)
         with open(filepath, "wb") as f:
             f.write(body)
+        
+        db_report.content_path = filepath
+        db.commit()
     finally:
         db.close()
 
