@@ -6,7 +6,6 @@ let activeAppealId = null;
 let activeSanctionType = 'MUTE';
 let dashboardLoaded = false;
 let adminStream = null;
-let reportPolling = null;
 let seenReportIds = new Set();
 let reportPage = 1;
 let reportPageCount = 1;
@@ -266,28 +265,6 @@ async function handleAdminStreamMessage(event) {
   if (message && message.type === 'new_hitl') {
     showReportAlert(message, { hitl: true });
   }
-}
-
-function bindReportPolling() {
-  if (reportPolling) return;
-  reportPolling = setInterval(async () => {
-    if (!dashboardLoaded) return;
-    try {
-      const nextReports = await requestJson('/api/admin/reports');
-      const newReports = findNewReports(Array.isArray(nextReports) ? nextReports : []);
-      rememberSeenReports(Array.isArray(nextReports) ? nextReports : []);
-      if (!newReports.length) return;
-      const latestNewReport = newReports.sort((a, b) => {
-        const left = new Date(a.created_at || 0).getTime() || Number(a.id || 0);
-        const right = new Date(b.created_at || 0).getTime() || Number(b.id || 0);
-        return right - left;
-      })[0];
-      await loadDashboard();
-      showReportAlert({ data: latestNewReport }, { forceStage: true });
-    } catch (error) {
-      console.warn('신고 목록 폴링 중 오류가 발생했습니다.', error);
-    }
-  }, 3000);
 }
 
 function bindAdminStream() {
@@ -629,7 +606,6 @@ window.openAppealReviewSheet = openAppealReviewSheet;
 
 bindEvents();
 bindAdminStream();
-bindReportPolling();
 updateSummary();
 renderReports();
 renderSanctions();
