@@ -559,14 +559,20 @@ async function applyDecision() {
   }
 }
 
+function enterDashboard() {
+  byId('loginScreen').style.display = 'none';
+  byId('dashboardWrap').style.display = 'block';
+  // 탭/창을 닫기 전까지만 유지 (localStorage가 아니라 sessionStorage)
+  sessionStorage.setItem('adminLoggedIn', 'true');
+}
+
 async function handleLogin() {
   const id = byId('loginId').value.trim();
   const pw = byId('loginPw').value.trim();
   const msg = byId('loginMsg');
   if (id === 'admin01' && pw === 'admin1234') {
     msg.textContent = '';
-    byId('loginScreen').style.display = 'none';
-    byId('dashboardWrap').style.display = 'block';
+    enterDashboard();
     if (!dashboardLoaded) await refreshDashboard();
     showPendingAlert();
   } else {
@@ -574,8 +580,19 @@ async function handleLogin() {
   }
 }
 
+function resumeSessionIfLoggedIn() {
+  if (sessionStorage.getItem('adminLoggedIn') !== 'true') return;
+  enterDashboard();
+  showPendingAlert();
+}
+
 function bindEvents() {
   byId('loginBtn').addEventListener('click', handleLogin);
+  ['loginId', 'loginPw'].forEach((id) => {
+    byId(id).addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') handleLogin();
+    });
+  });
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
@@ -618,3 +635,4 @@ renderReports();
 renderSanctions();
 renderAppeals();
 refreshDashboard();
+resumeSessionIfLoggedIn();

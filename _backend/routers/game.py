@@ -474,9 +474,6 @@ async def upload_voice(
         filepath = os.path.join(RECORDINGS_DIR, filename)
         with open(filepath, "wb") as f:
             f.write(body)
-            
-        db_report.content_path = filepath
-        db.commit()
     finally:
         db.close()
 
