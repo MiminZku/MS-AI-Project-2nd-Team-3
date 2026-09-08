@@ -1,7 +1,11 @@
+# Environment
 .env
+.env.local
+.env.*.local
 
-# macOS
-.DS_Store
+# Dependencies
+node_modules/
+package-lock.json.bak
 
 # Python
 __pycache__/
@@ -11,4 +15,20 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+*.egg-info/
+dist/
+build/
+
+# IDE & Tools
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Project specific
 recordings/
+*.webm
