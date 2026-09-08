@@ -237,11 +237,11 @@
         <div class="mc-desc">로컬 2인 대결<br>채팅 서버 연동</div>
         <div style="margin-top:16px" onclick="event.stopPropagation()">
           <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:6px;text-align:left">서버 주소</div>
-          <input id="serverAddr" type="text" value="172.16.30.143:3000"
+          <input id="serverAddr" type="text" value="localhost:3000"
             style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;text-align:center"
             onfocus="this.style.borderColor='var(--accent)'"
             onblur="this.style.borderColor='var(--border)'"
-            placeholder="192.168.0.5:3000"
+            placeholder="localhost:3000"
           />
         </div>
         <button onclick="event.stopPropagation(); selectMode('multi')"

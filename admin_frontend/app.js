@@ -20,7 +20,8 @@ function byId(id) {
 }
 
 function apiUrl(path) {
-  return `http://172.16.30.143:3000${path}`;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname;
+  return isLocal ? `http://localhost:3000${path}` : `${window.location.origin}${path}`;
 }
 
 function statusLabel(status) {
